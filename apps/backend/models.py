@@ -617,6 +617,3 @@ def write_canonical_xml(root, filename, mode=0440):
   xml_string = StringIO.StringIO()
   etree.ElementTree(root).write_c14n(xml_string)
   util.stream_to_file(xml_string, filename, compressed=True)
-
-
-
