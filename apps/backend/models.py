@@ -154,11 +154,6 @@ class Device(models.Model):
   def total_upload_bytes(cls):
     return sum([device.upload_bytes_count for device in Device.objects.all()])
  
-  @classmethod
-  def reset_new_device(cls, sender, **kwargs):
-    if kwargs['created']:
-      kwargs['instance'].reset_logcat()
-  
   class HashedIDConverter(Converter):
     @classmethod
     def from_xml(cls, value):
@@ -546,7 +541,7 @@ class Upload(models.Model):
   @classmethod
   def create(cls, request, version, hashedID, packagename, filename):
     upload = Upload(device=Device.create(hashedID), version=version, received_time=now(),
-                    packagename=packagename, upload_filename=filename, logcat_processing_done=False)
+                    packagename=packagename, upload_filename=filename)
     
     content = util.unzip_stream(request).read().decode('utf-8', errors='ignore')
     upload.bytes = len(content)
