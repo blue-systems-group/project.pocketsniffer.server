@@ -10,18 +10,18 @@
 
   <UploaderTask>
     <checkIntervalSec>900</checkIntervalSec>
-    <loggerURL>http://pocetsniffer.cse.buffalo.edu/uploader/</loggerURL>
+    <loggerURL>http://pocketsniffer.cse.buffalo.edu/uploader/</loggerURL>
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <failureCount>8</failureCount>
     <chunkedTransferMode>true</chunkedTransferMode>
     <chunkSizeKB>64</chunkSizeKB>
-    <minFilesToUpload>10</minFilesToUpload>
+    <minFilesToUpload>1</minFilesToUpload>
     <requireCharging>true</requireCharging>
     <requireWifi>false</requireWifi>
   </UploaderTask>
 
   <BatteryTask>
-    <checkIntervalSec>30</checkIntervalSec>
+    <checkIntervalSec>1</checkIntervalSec>
   </BatteryTask>
 
   <PingTask>
