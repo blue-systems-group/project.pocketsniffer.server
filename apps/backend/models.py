@@ -308,7 +308,7 @@ class Manifest(models.Model):
   @classmethod
   def basedir(cls):
     return os.path.join(settings.DATA_DIR, 'manifests')
-  
+
   @property
   def filename(self):
     return os.path.join(self.basedir(),
@@ -347,7 +347,7 @@ class Manifest(models.Model):
     
   @classmethod
   def create(cls, version, hashedID, request=None):
-    filename = os.path.join(cls.basedir(), version, 'manifest.xml')
+    filename = os.path.join(settings.MANIFEST_DIR, version, 'manifest.xml')
     
     if hashedID != None:
       device = Device.create(hashedID)

@@ -19,12 +19,12 @@ def recursive_create_directory(path, dirmod=0o2770):
   make_dirs = reversed(make_dirs)
   for make_dir in make_dirs:
     os.mkdir(make_dir)
-    os.chown(make_dir, os.stat(make_dir).st_uid, grp.getgrnam(settings.PHONELAB_GROUP).gr_gid)
+    os.chown(make_dir, os.stat(make_dir).st_uid, grp.getgrnam(settings.GROUP).gr_gid)
     os.chmod(make_dir, dirmod)
 
 def set_path_mod(path, filemod=0o0440):
   os.chmod(path, filemod)
-  os.chown(path, os.stat(path).st_uid, grp.getgrnam(settings.PHONELAB_GROUP).gr_gid)
+  os.chown(path, os.stat(path).st_uid, grp.getgrnam(settings.GROUP).gr_gid)
   
 def stream_to_file(stream, path,
                    append=False, overwrite=True, dirmod=0o2770, filemod=0o0440, compressed=False):

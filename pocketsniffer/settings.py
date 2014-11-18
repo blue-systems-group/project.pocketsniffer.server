@@ -16,7 +16,7 @@ import datetime
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 DATA_DIR = os.path.join(BASE_DIR, 'data')
-MANIFEST_DIR = os.path.join(BASE_DIR, 'manifest')
+MANIFEST_DIR = os.path.join(BASE_DIR, 'manifests')
 LOG_DIR = os.path.join(BASE_DIR, 'logs/django')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -35,7 +35,6 @@ DEBUG = True
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -219,3 +218,7 @@ LOGGING = {
         }
       }
     }
+
+
+# Local settings
+from local_settings import *

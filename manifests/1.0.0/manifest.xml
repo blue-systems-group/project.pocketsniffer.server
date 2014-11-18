@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <ManifestTask>
+    <checkIntervalSec>900</checkIntervalSec>
+    <manifestURL>http://pocketsniffer.cse.buffalo.edu/manifest</manifestURL>
+    <backupManifestURL>http://pocketsniffer.cse.buffalo.edu/manifest</backupManifestURL>
+    <backupManifestThreshold>8</backupManifestThreshold>
+    <connectionTimeoutSec>10</connectionTimeoutSec>
+  </ManifestTask>
+
+  <UploaderTask>
+    <checkIntervalSec>900</checkIntervalSec>
+    <loggerURL>http://pocetsniffer.cse.buffalo.edu/uploader/</loggerURL>
+    <connectionTimeoutSec>10</connectionTimeoutSec>
+    <failureCount>8</failureCount>
+    <chunkedTransferMode>true</chunkedTransferMode>
+    <chunkSizeKB>64</chunkSizeKB>
+    <minFilesToUpload>10</minFilesToUpload>
+    <requireCharging>true</requireCharging>
+    <requireWifi>false</requireWifi>
+  </UploaderTask>
+
+  <BatteryTask>
+    <checkIntervalSec>30</checkIntervalSec>
+  </BatteryTask>
+
+  <PingTask>
+    <checkIntervalSec>300</checkIntervalSec>
+    <hosts>
+      <string>192.168.1.1</string>
+      <string>timberlake.cse.buffalo.edu</string>
+      <string>8.8.8.8</string>
+    </hosts>
+    <packetNum>10</packetNum>
+  </PingTask>
+
+  <ScanResultTask>
+    <checkIntervalSec>300</checkIntervalSec>
+    <targetSSID>PocketSniffer</targetSSID>
+    <preSharedKey>LDR9OXnevs5lBlCjz0MNga2H40DlT2m0</preSharedKey>
+    <minRSSI>-70</minRSSI>
+    <promptIntervalSec>300</promptIntervalSec>
+  </ScanResultTask>
+
+  <ServerTask>
+    <checkIntervalSec>300</checkIntervalSec>
+    <serverPort>6543</serverPort>
+  </ServerTask>
+
+  <ThrouputTask>
+    <checkIntervalSec>300</checkIntervalSec>
+    <urls>
+      <String>http://192.168.1.1:8080/downloads/test-10M.bin</String>
+    </urls>
+    <connectionTimeoutSec>10</connectionTimeoutSec>
+    <readTimeoutSec>10</readTimeoutSec>
+  </ThrouputTask>
+</manifest>
