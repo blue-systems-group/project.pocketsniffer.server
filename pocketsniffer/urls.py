@@ -1,10 +1,39 @@
-from django.conf.urls import patterns, include, url
-from django.contrib import admin
+from django.conf.urls import patterns, url
+from django.conf import settings
+from django.http.response import Http404
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+
+from apps.backend.models import State, Manifest
+
+XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
+
+@csrf_exempt
+def manifest_from_request(request, version, hashedID):
+  hashedID = hashedID.zfill(40)
+  if version == None:
+    version = settings.BACKEND_DEFAULT_CLIENT_VERSION
+  
+  try:
+    state = State.create(request, version=version, hashedID=hashedID)
+    state.save()
+  except:
+    raise Http404
+    
+  try:
+    manifest = Manifest.create(version, hashedID)
+  except:
+    raise Http404
+  
+  manifest.save()
+
+  xml = manifest.xml
+  if not xml.startswith(XML_DECLARATION) :
+    xml = "%s%s" % (XML_DECLARATION, xml)
+  
+  return HttpResponse(xml, content_type='application/xml')
+
 
 urlpatterns = patterns('',
-    # Examples:
-    # url(r'^$', 'pocketsniffer.views.home', name='home'),
-    # url(r'^blog/', include('blog.urls')),
-
-    url(r'^admin/', include(admin.site.urls)),
+    url(r'^manifest(?:/(?P<version>[0-9\.]+){1})?/(?P<hashedID>[a-f0-9]{38,40})', manifest_from_request),
 )
