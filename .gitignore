@@ -1,0 +1,13 @@
+/protected
+/backup
+/import
+/media
+/static
+/.settings
+/.project
+/.pydevproject
+*.pyc
+*.swp
+/.virtualenv
+/data
+/bin/forward.sh
