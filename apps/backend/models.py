@@ -5,9 +5,11 @@ import datetime
 import time
 import StringIO
 import gzip
+import subprocess
+import pipes
 
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Sum
 from django.conf import settings
 from django.utils.timezone import now
 from django.core.cache import cache
@@ -35,9 +37,12 @@ class Device(models.Model):
   
   last_state = models.ForeignKey('State', null=True, blank=True, related_name='state_device')
   last_manifest = models.ForeignKey('Manifest', null=True, blank=True, related_name='manifest_device')
+  last_upload = models.ForeignKey('Upload', null=True, blank=True, related_name='upload_device')
   
   state_count = models.IntegerField(default=0)
   manifest_count = models.IntegerField(default=0)
+  upload_count = models.IntegerField(default=0)
+  upload_bytes_count = models.BigIntegerField(default=0)
   
   def lock(self, **kwargs):
     return Device.do_lock(device=self, **kwargs)
@@ -130,12 +135,25 @@ class Device(models.Model):
   def update_counts(self):
     with self.lock() as device:
       device.state_count = State.objects.filter(device=device).count()
+      device.upload_count = Upload.objects.filter(device=device, disabled=False).count()
+      device.upload_bytes_count = Upload.objects.filter(device=device, disabled=False).aggregate(Sum('bytes'))['bytes__sum']
+      if device.upload_bytes_count == None:
+        device.upload_bytes_count = 0
+ 
       device.save(update_fields=['state_count'])
   
   @classmethod
   def total_states(cls):
     return sum([device.state_count for device in Device.objects.all()])
+
+  @classmethod
+  def total_uploads(cls):
+    return sum([device.upload_count for device in Device.objects.all()])
   
+  @classmethod
+  def total_upload_bytes(cls):
+    return sum([device.upload_bytes_count for device in Device.objects.all()])
+ 
   @classmethod
   def reset_new_device(cls, sender, **kwargs):
     if kwargs['created']:
@@ -181,7 +199,12 @@ class State(models.Model):
   # ManifestService
   version_name = models.DecimalField(max_digits=3, decimal_places=1, null=True)
   version_code = models.IntegerField(null=True)
-  
+
+  # UploaderService
+  last_upload = models.DateTimeField(null=True)
+  uploaded_bytes = models.BigIntegerField(null=True)
+  reason_not_upload = models.CharField(max_length=1024, null=True, blank=True)
+
   # general
   received_time = models.DateTimeField(db_index=True)
   received_ID = models.CharField(max_length=40, null=True)
@@ -425,6 +448,151 @@ def do_remove_linked_file(filename, basedir):
       except OSError:
         break
       current_dir = os.path.dirname(current_dir)
+
+
+class Upload(models.Model):
+  
+  class Meta:
+    unique_together = (('device', 'received_time'),)
+   
+  device = models.ForeignKey('Device')
+  received_time = models.DateTimeField()
+  version = models.CharField(max_length=10)
+  bytes = models.IntegerField()
+  packagename = models.CharField(max_length=256, null=True, blank=True)
+  upload_filename = models.CharField(max_length=128)
+  disabled = models.BooleanField(default=False)
+  compressed = models.BooleanField(default=False)
+
+  @classmethod
+  def basedir(cls):
+    return os.path.join(settings.DATA_DIR, 'upload')
+  
+  @property
+  def filename(self):
+    base_filename = os.path.join(self.basedir(),
+                                 self.device.hashedID,
+                                 util.received_file_relative_path(self.upload_filename, self.received_time))
+    if self.compressed:
+      return base_filename + '.gz'
+    else:
+      return base_filename
+    
+  @property
+  def exists(self):
+    return os.path.exists(self.filename)
+  
+  def compress(self, save=True):
+    if self.compressed:
+      return True
+    else:
+      try:
+        subprocess.check_call("gzip %s" % (pipes.quote(self.filename),), shell=True)
+      except:
+        raise
+      else:
+        self.compressed = True
+        if save:
+          self.save(update_fields=['compressed'])
+        return True
+  
+  def fix_compressed(self):
+    if not self.exists:
+      if self.compressed == True:
+        self.compressed = False
+      else:
+        self.compressed = True
+      if self.exists:
+        self.save()
+      else:
+        raise Exception("could not fix upload file compression state")
+        
+  def decompress(self):
+    if not self.exists:
+      self.fix_compressed()
+      
+    if not self.compressed:
+      return True
+    else:
+      try:
+        subprocess.check_call("gunzip %s" % (pipes.quote(self.filename),), shell=True)
+      except Exception, e:
+        print e
+        raise
+      else:
+        self.compressed = False
+        self.save(update_fields=['compressed'])
+        return True
+      
+  def clean(self):
+    if not self.exists:
+      raise BackendValidationError("file does not exist")
+   
+  def save(self, *args, **kwargs):
+    with transaction.commit_manually():
+      try:
+        super(Upload, self).save(*args, **kwargs)
+      except:
+        do_remove_linked_file(self.filename, self.basedir())
+        transaction.rollback()
+        raise
+      else:
+        transaction.commit()
+      
+  @classmethod
+  def path_matches(cls, path):
+    return any([re.match(r'^log', os.path.split(path)[1]) != None],)
+  
+  @classmethod
+  def create(cls, request, version, hashedID, packagename, filename):
+    upload = Upload(device=Device.create(hashedID), version=version, received_time=now(),
+                    packagename=packagename, upload_filename=filename, logcat_processing_done=False)
+    
+    content = util.unzip_stream(request).read().decode('utf-8', errors='ignore')
+    upload.bytes = len(content)
+    
+    if os.path.exists(upload.filename):
+      raise BackendValidationError("upload file already exists")
+    else:
+      util.stream_to_file(StringIO.StringIO(content), upload.filename)
+    
+    try:
+      upload.full_clean()
+      upload.compress(save=False)
+    except:
+      do_remove_linked_file(upload.filename, upload.basedir())
+      raise
+    
+    return upload
+
+  @classmethod
+  def set_last_upload(cls, sender, **kwargs):
+    if kwargs['created']:
+      upload = kwargs['instance']
+      with upload.device.lock(name='upload') as device:
+        if device.last_upload == None or device.last_upload.received_time < upload.received_time:
+          device.last_upload = upload
+          device.save(update_fields=['last_upload'])
+  
+  @classmethod
+  def update_upload_counts(cls, sender, **kwargs):
+    if kwargs['created']:
+      upload = kwargs['instance']
+      device = upload.device
+      
+      device.upload_count = F('upload_count') + 1
+      device.upload_bytes_count = F('upload_bytes_count') + upload.bytes
+      device.save(update_fields=['upload_count', 'upload_bytes_count'])
+       
+      
+  class ConvertPath(Converter):
+    @classmethod
+    def from_xml(cls, field):
+      try:
+        return os.path.basename(field)
+      except:
+        return None
+
  
 
 def root_from_file(request):
@@ -449,5 +617,6 @@ def write_canonical_xml(root, filename, mode=0440):
   xml_string = StringIO.StringIO()
   etree.ElementTree(root).write_c14n(xml_string)
   util.stream_to_file(xml_string, filename, compressed=True)
+
 
 
