@@ -2,15 +2,15 @@
 <manifest>
   <ManifestTask>
     <checkIntervalSec>900</checkIntervalSec>
-    <manifestURL>http://pocketsniffer.cse.buffalo.edu/manifest</manifestURL>
-    <backupManifestURL>http://pocketsniffer.cse.buffalo.edu/manifest</backupManifestURL>
+    <manifestURL>http://pocketsniffer.phone-lab.org/manifest</manifestURL>
+    <backupManifestURL>http://pocketsniffer.phone-lab.org/manifest</backupManifestURL>
     <backupManifestThreshold>8</backupManifestThreshold>
     <connectionTimeoutSec>10</connectionTimeoutSec>
   </ManifestTask>
 
   <UploaderTask>
     <checkIntervalSec>900</checkIntervalSec>
-    <loggerURL>http://pocketsniffer.cse.buffalo.edu/uploader/</loggerURL>
+    <loggerURL>http://pocketsniffer.phone-lab.org/upload/</loggerURL>
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <failureCount>8</failureCount>
     <chunkedTransferMode>true</chunkedTransferMode>
@@ -21,7 +21,7 @@
   </UploaderTask>
 
   <BatteryTask>
-    <checkIntervalSec>1</checkIntervalSec>
+    <checkIntervalSec>60</checkIntervalSec>
   </BatteryTask>
 
   <PingTask>
@@ -40,11 +40,14 @@
     <preSharedKey>LDR9OXnevs5lBlCjz0MNga2H40DlT2m0</preSharedKey>
     <minRSSI>-70</minRSSI>
     <promptIntervalSec>300</promptIntervalSec>
+    <forceConnect>true</forceConnect>
   </ScanResultTask>
 
   <ServerTask>
     <checkIntervalSec>300</checkIntervalSec>
     <serverPort>6543</serverPort>
+    <targetSSID>PocketSniffer</targetSSID>
+    <connectionTimeoutSec>30</connectionTimeoutSec>
   </ServerTask>
 
   <ThrouputTask>
