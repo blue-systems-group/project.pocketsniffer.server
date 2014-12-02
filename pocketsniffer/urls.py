@@ -57,5 +57,5 @@ def upload_from_request(request, version, hashedID, packagename, filename):
 
 urlpatterns = patterns('',
     url(r'^manifest(?:/(?P<version>[0-9\.]+){1})?/(?P<hashedID>[a-f0-9]{38,40})', manifest_from_request),
-    url(r'^uploader(?:/(?P<version>[0-9\.]+){1})?/(?P<hashedID>[a-f0-9]{38,40})(?:/(?P<packagename>\S+?){1})?/(?P<filename>\S+)$', upload_from_request),
+    url(r'^upload(?:/(?P<version>[0-9\.]+){1})?/(?P<hashedID>[a-f0-9]{38,40})(?:/(?P<packagename>\S+?){1})?/(?P<filename>\S+)$', upload_from_request),
 )
