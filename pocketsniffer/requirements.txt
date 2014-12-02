@@ -4,4 +4,5 @@ django-extensions==1.4.6
 lxml==3.4.0
 psycopg2==2.5.4
 six==1.8.0
+uWSGI==2.0.8
 wsgiref==0.1.2
