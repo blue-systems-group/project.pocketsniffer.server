@@ -28,6 +28,7 @@
     <checkIntervalSec>300</checkIntervalSec>
     <hosts>
       <string>192.168.1.1</string>
+      <String>pocketsniffer.phone-lab.org</String>
       <string>timberlake.cse.buffalo.edu</string>
       <string>8.8.8.8</string>
     </hosts>
@@ -53,9 +54,14 @@
   <ThrouputTask>
     <checkIntervalSec>300</checkIntervalSec>
     <urls>
-      <String>http://192.168.1.1:8080/downloads/test-100M.bin</String>
+      <String>http://192.168.1.1:8080/downloads/test-50M.bin</String>
+      <String>http://pocketsniffer.phone-lab.org/static/downloads/test-50M.bin</String>
     </urls>
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <readTimeoutSec>10</readTimeoutSec>
   </ThrouputTask>
+
+  <BuildInfoTask>
+    <checkIntervalSec>900</checkIntervalSec>
+  </BuildInfoTask>
 </manifest>
