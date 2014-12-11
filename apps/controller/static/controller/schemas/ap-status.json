@@ -1,0 +1,58 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "APStatus",
+    "description": "AP status.",
+    "type": "object",
+    "properties": {
+        "IP": {
+            "description": "WAN IP address.",
+            "type": "string",
+            "format": "ipv4"
+        },
+        "band2g": {
+            "description": "2.4 Ghz band information.",
+            "$ref": "#/definitions/bandInfo"
+        },
+        "band5g": {
+            "description": "5 Ghz band information.",
+            "$ref": "#/definitions/bandInfo"
+        }
+    },
+    "definitions": {
+        "bandInfo": {
+            "required": ["enabled"],
+            "properties": {
+                "enabled": {
+                    "description": "Whether this band is enabled.",
+                    "type": "boolean"
+                },
+                "channel": {
+                    "description": "Channel used in this band.",
+                    "type": "integer"
+                },
+                "txPower": {
+                    "description": "TX power used in this band.",
+                    "type": "integer"
+                },
+                "BSSID": {
+                    "description": "BSSID used in this band.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/schemas/scanresult#/definitions/macAddr"
+                },
+                "SSID": {
+                    "description": "SSID used in this band.",
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "signal": {
+                    "description": "Signal (in dBm) of last received packet in this band",
+                    "type": "integer"
+                },
+                "noise": {
+                    "description": "Noise level (in dBm) in this band",
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
