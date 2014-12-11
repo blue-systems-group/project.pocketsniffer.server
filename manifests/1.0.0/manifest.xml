@@ -51,15 +51,15 @@
     <connectionTimeoutSec>30</connectionTimeoutSec>
   </ServerTask>
 
-  <ThrouputTask>
+  <ThroughputTask>
     <checkIntervalSec>300</checkIntervalSec>
     <urls>
-      <String>http://192.168.1.1:8080/downloads/test-50M.bin</String>
-      <String>http://pocketsniffer.phone-lab.org/static/downloads/test-50M.bin</String>
+      <string>http://192.168.1.1:8080/downloads/test-50M.bin</string>
+      <string>http://pocketsniffer.phone-lab.org/static/downloads/test-50M.bin</string>
     </urls>
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <readTimeoutSec>10</readTimeoutSec>
-  </ThrouputTask>
+  </ThroughputTask>
 
   <BuildInfoTask>
     <checkIntervalSec>900</checkIntervalSec>
