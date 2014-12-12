@@ -1,0 +1,72 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "ScanResult",
+    "description": "Scan results.",
+    "type": "object",
+    "required": ["MAC", "timestamp", "detailed", "resultList"],
+    "properties": {
+        "MAC": {
+            "description": "MAC address of the station that performed scan.",
+            "$ref": "#/definitions/macAddr"
+        },
+        "timestamp": {
+            "description": "When this scan results are created.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "detailed": {
+            "description": "Whether or not this scan results contain more detailed AP information, such as staion number and BSS load.",
+            "type": "boolean"
+        },
+        "resultList": {
+            "description": "List of scan results.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/definitions/scanResultEntry"
+            }
+        }
+    },
+    "definitions": {
+        "scanResultEntry": {
+            "required": ["BSSID", "SSID", "frequency", "RSSI"],
+            "properties": {
+                "BSSID": {
+                    "description": "AP BSSID",
+                    "$ref": "#/definitions/macAddr"
+                },
+                "SSID": {
+                    "description": "AP SSID",
+                    "type": "String",
+                    "maxLength": 32
+                },
+                "frequency": {
+                    "description": "AP frequency",
+                    "type": "integer",
+                    "minimum": 2412,
+                    "maximum": 5825
+                },
+                "RSSI": {
+                    "description": "AP RSSI",
+                    "type": "integer"
+                },
+
+                "stationCount": {
+                    "description": "Number of stations that associate with this AP. This information is obtained via iw scan.",
+                    "type": "integer"
+                },
+                "bssLoad": {
+                    "description": "BSS load. Usually in xxx/255 format in iw scan output.",
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        },
+        "macAddr": {
+            "type": "string",
+            "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
+        }
+    }
+}

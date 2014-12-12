@@ -22,6 +22,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 
+PUBLIC_TCP_PORT = 7654
+CONNECTION_TIMEOUT_SEC = 10
+READ_TIMEOUT_SEC = 300
+BUF_SIZE = 16*1024
+
+AP_LIST = [
+    ('64:66:b3:c9:6e:8b', '128.205.39.167'),
+    ('10:fe:ed:e5:8c:96', '128.205.39.166'),
+    ]
+
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
@@ -46,6 +57,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
+    'djcelery',
     'apps.backend',
     'apps.controller',
 )
@@ -59,6 +71,9 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
+
+CELERY_RESULT_BACKEND='djcelery.backends.database:DatabaseBackend'
+BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
 ROOT_URLCONF = 'pocketsniffer.urls'
 

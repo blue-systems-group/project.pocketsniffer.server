@@ -1,0 +1,117 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/reply#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Reply",
+    "description": "A reply sent from client to router, or from router to controller.",
+    "type": "object",
+    "required": ["request"],
+    "properties": {
+        "request": {
+            "description": "The original request that this reply is for.",
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/request#"
+        },
+        "apStatus": {
+            "description": "Reply for apStatus request.",
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status#"
+        },
+        "apScan": {
+            "description": "Reply for apScan request. A list of scanresult. One item for each band.",
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#"
+            }
+        },
+        "stationDump": {
+            "description": "Reply for stationDump request."
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#"
+        },
+        "clientScan": {
+            "description": "Reply for clientScan request. A list for scanresult.",
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#"
+            }
+        },
+        "clientTraffic": {
+            "description": "Reply for clientTraffic request. A list of traffic.",
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/traffic#"
+            }
+        },
+        "clientLatency": {
+            "description": "A list of each client's latency.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/latency"
+            }
+        }
+        "clientThroughput": {
+            "description": "A list of each client's throughput.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/throughput"
+            }
+        }
+    },
+    "definitions": {
+        "latency": {
+            "description": "Latency statistics between station and sniffer AP.",
+            "required": ["timestamp", "MAC", "minRTT", "maxRTT", "avgRTT", "stdDev"],
+            "properties": {
+                "timestamp": {
+                    "description": "When this measurement is performed.",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "MAC": {
+                    "description": "Client who performed this measurement.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                },
+                "minRTT": {
+                    "description": "Minimum RTT in msec.",
+                    "type": "number"
+                },
+                "maxRTT": {
+                    "description": "Maximum RTT in msec.",
+                    "type": "number"
+                },
+                "avgRTT": {
+                    "description": "Average RTT in msec.",
+                    "type": "number"
+                },
+                "stdDev": {
+                    "description": "Standard deviation of RTT.",
+                    "type": "number"
+                }
+            }
+        },
+        "throughput": {
+            "description": "Throughput statistics between station and sniffer AP.",
+            "required": ["timestamp", "MAC", "fileSize", "duration", "throughput"],
+            "properties": {
+                "timestamp": {
+                    "description": "When this measurement is performed.",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "MAC": {
+                    "description": "Client who performed this measurement.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                },
+                "fileSize": {
+                    "description": "File size (in bytes) that is downloaded.",
+                    "type": "integer"
+                }
+                "duration": {
+                    "description": "How long it takes (in seconds) to download the file.",
+                    "type": "integer"
+                },
+                "throughput": {
+                    "description": "Calculated throughput (in MBps).",
+                    "type": "number"
+                }
+            }
+        }
+    }
+}

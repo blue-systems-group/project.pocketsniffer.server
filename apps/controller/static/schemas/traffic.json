@@ -1,0 +1,56 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/traffic#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Traffic",
+    "description": "Traffic seen by a station reported in monitor mode.",
+    "type": "object",
+    "required": ["MAC", "traffics"],
+    "properties": {
+        "MAC": {
+            "description": "Station MAC that collects this traffic.",
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+        }
+        "traffics": {
+            "description": "List of traffic flows.",
+            "$ref": "#definitions/traffic-entry"
+        }
+    }
+    "definitions": {
+        "traffic-entry": {
+            "required": ["channel", "begin", "end", "from", "to", "txBytes", "rxBytes"],
+            "properties": {
+                "channel": {
+                    "description": "On which channel that the station overhear this traffic.",
+                    "type": "integer"
+                },
+                "begin": {
+                    "description": "When this traffic begins.",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "end": {
+                    "description": "When this traffic ends.",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "from": {
+                    "description": "Traffic source.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                },
+                "to": {
+                    "description": "Traffic destination.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                },
+                "txBytes": {
+                    "description": "Bytes transmitted from --> to.",
+                    "type": "integer"
+                },
+                "rxBytes": {
+                    "description": "Bytes transmitted to --> from.",
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
+ 

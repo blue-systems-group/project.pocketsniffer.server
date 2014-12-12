@@ -1,0 +1,91 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "StationDump",
+    "required": ["MAC", "band2g", "band5g"]
+    "properties": {
+        "MAC": {
+            "description": "WAN MAC address of the router that performs this station dump.",
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+        },
+        "band2g": {
+            "description": "Stations associated at 2.4 GHz band.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/station"
+            }
+        },
+        "band5g": {
+            "description": "Stations associated at 2.4 GHz band.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/station"
+            }
+        }
+    },
+    "definitions": {
+        "station": {
+            "description": "A station that associated with this AP. Information is obtained using iw station dump.",
+            "type": "object",
+            "required": ["MAC", "IP"],
+            "properties": {
+                "MAC": {
+                    "description": "Station MAC address.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/schemas/scanresult#/definitions/macAddr"
+                },
+                "IP": {
+                    "description": "Station IP address.",
+                    "type": "string",
+                    "format": "ipv4"
+                },
+                "inactiveTime": {
+                    "description": "Time since last activity (in milliseconds).",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "rxBytes": {
+                    "description": "Total received bytes from station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "rxPackets": {
+                    "description": "Total received packets from station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "txBytes": {
+                    "description": "Total transmitted bytes to station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "txPackets": {
+                    "description": "Total transmitted packets to station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "txFailures": {
+                    "description": "Total failed packets to station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "txRetries": {
+                    "description": "Total retries to station.",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "avgSignal": {
+                    "description": "Average signal strength in dBm.",
+                    "type": "integer"
+                },
+                "txBitrate": {
+                    "description": "Current unicast TX rate.",
+                    "type": "number"
+                },
+                "rxBitrate": {
+                    "description": "Last unicast RX rate.",
+                    "type": "number"
+                }
+            }
+        }
+    }
+}

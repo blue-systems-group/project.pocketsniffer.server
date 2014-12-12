@@ -1,0 +1,93 @@
+{
+    "id": "http://pocketsniffer.phone-lab.org/static/schemas/request#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Request",
+    "description": "A request sent from controller to router, or from router to sniffer client.",
+    "type": "object",
+    "required": ["action"],
+    "properties": {
+        "action": {
+            "description": "Action that is supposed to be performed by receiver.",
+            "type": "string",
+            "enum": ["collect", "apConfig", "clientReassoc"]
+        },
+        "apStatus": {
+            "description": "Whether to collect AP status, e.g., current channel, tx power, etc.",
+            "type": "boolean"
+        },
+        "apScan": {
+            "description": "Whether to collect AP scan results.",
+            "type": "boolean"
+        },
+        "stationDump": {
+            "description": "Whether to collect associated station information.",
+            "type": "boolean"
+        },
+        "clientScan": {
+            "description": "Whether to collect client scan results.",
+            "type": "boolean"
+        },
+        "clientTraffic": {
+            "description": "Whether to collect client traffic (by turning client into monitor mode).",
+            "type": "boolean"
+        },
+        "clientLatency": {
+            "description": "Whether to collect client latency (to sniffer AP).",
+            "type": "boolean"
+        },
+        "clientThroughput": {
+            "description": "Whether to collect client throughput (to sniffer AP).",
+            "type": "boolean"
+        },
+
+        "trafficChannel": {
+            "description": "If collect client traffic, which channel to listen.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maxmum": 165
+            },
+            "uniqueItems": true
+        },
+        "band2g": {
+            "description": "2.4 GHz band configuration.",
+            "$ref": "#/definitions/bandConfiguration"
+        },
+        "band5g": {
+            "description": "2.4 GHz band configuration.",
+            "$ref": "#/definitions/bandConfiguration"
+        },
+
+        "client": {
+            "description": "The client that this request should be redirected to.",
+            "type": "string",
+            "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
+        },
+        "newBSSID": {
+            "description": "New AP BSSID that the client should associate to.",
+            "type": "string",
+            "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
+        },
+    },
+    "definitions": {
+        "bandConfiguration": {
+            "required": ["enable"],
+            "properties": {
+                "enable": {
+                    "description": "Whether to enable this band",
+                    "type": "boolean"
+                },
+                "channel": {
+                    "description": "Channel to use in this band.",
+                    "type": "integer"
+                },
+                "txPower" : {
+                    "description": "Tx power (in dBm) to use in this band.",
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
