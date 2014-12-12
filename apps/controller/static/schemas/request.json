@@ -9,28 +9,37 @@
         "action": {
             "description": "Action that is supposed to be performed by receiver.",
             "type": "string",
-            "enum": ["collect", "apConfig", "clientReassoc", "clientMeasure"]
+            "enum": ["collect", "apConfig", "clientReassoc"]
         },
         "apStatus": {
-            "description": "Whether or not collect AP status, e.g., current channel, tx power, etc.",
+            "description": "Whether to collect AP status, e.g., current channel, tx power, etc.",
             "type": "boolean"
         },
         "apScan": {
-            "description": "Whether or not collect AP scan results.",
+            "description": "Whether to collect AP scan results.",
             "type": "boolean"
         },
         "stationDump": {
-            "description": "Whether or not collect associated station information.",
+            "description": "Whether to collect associated station information.",
             "type": "boolean"
         },
         "clientScan": {
-            "description": "Whether or not collect client scan results.",
+            "description": "Whether to collect client scan results.",
             "type": "boolean"
         },
         "clientTraffic": {
-            "description": "Whether or not collect client traffic (by turning client into monitor mode).",
+            "description": "Whether to collect client traffic (by turning client into monitor mode).",
             "type": "boolean"
         },
+        "clientLatency": {
+            "description": "Whether to collect client latency (to sniffer AP).",
+            "type": "boolean"
+        },
+        "clientThroughput": {
+            "description": "Whether to collect client throughput (to sniffer AP).",
+            "type": "boolean"
+        },
+
         "trafficChannel": {
             "description": "If collect client traffic, which channel to listen.",
             "type": "array",
@@ -50,6 +59,7 @@
             "description": "2.4 GHz band configuration.",
             "$ref": "#/definitions/bandConfiguration"
         },
+
         "client": {
             "description": "The client that this request should be redirected to.",
             "type": "string",
@@ -60,11 +70,6 @@
             "type": "string",
             "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
         },
-        "measurementType": {
-            "description": "Which type of measurement that the client should perform.",
-            "type": "string",
-            "enum": ["latency", "bandwidth"]
-        }
     },
     "definitions": {
         "bandConfiguration": {
