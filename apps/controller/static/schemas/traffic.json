@@ -9,12 +9,12 @@
         "MAC": {
             "description": "Station MAC that collects this traffic.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
-        }
+        },
         "traffics": {
             "description": "List of traffic flows.",
             "$ref": "#definitions/traffic-entry"
         }
-    }
+    },
     "definitions": {
         "traffic-entry": {
             "required": ["channel", "begin", "end", "from", "to", "txBytes", "rxBytes"],

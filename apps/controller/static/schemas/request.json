@@ -69,7 +69,7 @@
             "description": "New AP BSSID that the client should associate to.",
             "type": "string",
             "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
-        },
+        }
     },
     "definitions": {
         "bandConfiguration": {

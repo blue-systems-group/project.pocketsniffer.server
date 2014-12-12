@@ -22,7 +22,7 @@
             }
         },
         "stationDump": {
-            "description": "Reply for stationDump request."
+            "description": "Reply for stationDump request.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#"
         },
         "clientScan": {
@@ -45,7 +45,7 @@
             "items": {
                 "$ref": "#/definitions/latency"
             }
-        }
+        },
         "clientThroughput": {
             "description": "A list of each client's throughput.",
             "type": "array",
@@ -102,7 +102,7 @@
                 "fileSize": {
                     "description": "File size (in bytes) that is downloaded.",
                     "type": "integer"
-                }
+                },
                 "duration": {
                     "description": "How long it takes (in seconds) to download the file.",
                     "type": "integer"
