@@ -2,7 +2,7 @@
     "id": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "title": "StationDump",
-    "required": ["MAC", "band2g", "band5g"]
+    "required": ["MAC", "band2g", "band5g"],
     "properties": {
         "MAC": {
             "description": "WAN MAC address of the router that performs this station dump.",
