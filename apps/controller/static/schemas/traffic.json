@@ -57,7 +57,7 @@
                 "avgTxRSSI": {
                     "description": "Average RSSI of packets of station from.",
                     "type": "integer"
-                }
+                },
                 "avgRxRSSI": {
                     "description": "Average RSSI of packets of station to.",
                     "type": "integer"

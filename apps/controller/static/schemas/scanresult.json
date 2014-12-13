@@ -26,7 +26,7 @@
             "items": {
                 "$ref": "#/definitions/scanResultEntry"
             }
-        }
+        },
         "iwScanOutput": {
             "description": "Output of iw scan. Clients can send raw iw scan output to AP, and AP will parse it.",
             "type": "string"
