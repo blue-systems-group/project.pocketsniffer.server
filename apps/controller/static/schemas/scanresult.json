@@ -1,5 +1,4 @@
 {
-    "id": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "title": "ScanResult",
     "description": "Scan results.",
@@ -42,7 +41,7 @@
                 },
                 "SSID": {
                     "description": "AP SSID",
-                    "type": "String",
+                    "type": "string",
                     "maxLength": 32
                 },
                 "frequency": {

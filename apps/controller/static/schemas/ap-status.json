@@ -1,5 +1,4 @@
 {
-    "id": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "title": "APStatus",
     "description": "AP status.",
@@ -13,7 +12,7 @@
         },
         "MAC": {
             "description": "WAN MAC address.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
         },
         "band2g": {
             "description": "2.4 Ghz band information.",
@@ -42,7 +41,7 @@
                 },
                 "BSSID": {
                     "description": "BSSID used in this band.",
-                    "$ref": "http://pocketsniffer.phone-lab.org/schemas/scanresult#/definitions/macAddr"
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
                 "SSID": {
                     "description": "SSID used in this band.",

@@ -1,5 +1,4 @@
 {
-    "id": "http://pocketsniffer.phone-lab.org/static/schemas/reply#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "title": "Reply",
     "description": "A reply sent from client to router, or from router to controller.",
@@ -8,35 +7,39 @@
     "properties": {
         "request": {
             "description": "The original request that this reply is for.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/request#"
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/request.json#"
         },
         "apStatus": {
             "description": "Reply for apStatus request.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status#"
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status.json#"
         },
         "apScan": {
-            "description": "Reply for apScan request. A list of scanresult. One item for each band.",
-            "type": "array",
-            "items": {
-                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#"
-            }
+            "description": "Reply for apScan request.",
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#"
         },
         "stationDump": {
             "description": "Reply for stationDump request.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#"
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/station-dump.json#"
+        },
+        "phonelabDevice": {
+            "description": "Reply for phonelabDevice request. A list of PhoneLab Device MAC addresses.",
+            "type": "array",
+            "items" : {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+            }
         },
         "clientScan": {
             "description": "Reply for clientScan request. A list for scanresult.",
             "type": "array",
             "items": {
-                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#"
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#"
             }
         },
         "clientTraffic": {
             "description": "Reply for clientTraffic request. A list of traffic.",
             "type": "array",
             "items": {
-                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/traffic#"
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/traffic.json#"
             }
         },
         "clientLatency": {
@@ -66,7 +69,7 @@
                 },
                 "MAC": {
                     "description": "Client who performed this measurement.",
-                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
                 "minRTT": {
                     "description": "Minimum RTT in msec.",
@@ -97,7 +100,7 @@
                 },
                 "MAC": {
                     "description": "Client who performed this measurement.",
-                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
                 "fileSize": {
                     "description": "File size (in bytes) that is downloaded.",
