@@ -2,6 +2,7 @@
 /backup
 /import
 /media
+/static
 /.settings
 /.project
 /.pydevproject
