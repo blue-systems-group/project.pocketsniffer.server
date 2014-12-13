@@ -2,11 +2,16 @@
     "id": "http://pocketsniffer.phone-lab.org/static/schemas/staion-dump#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "title": "StationDump",
-    "required": ["MAC", "band2g", "band5g"],
+    "required": ["MAC", "timestamp", "band2g", "band5g"],
     "properties": {
         "MAC": {
             "description": "WAN MAC address of the router that performs this station dump.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+        },
+        "timestamp": {
+            "description": "When this staion dump is performed.",
+            "type": "string",
+            "format": "date-time"
         },
         "band2g": {
             "description": "Stations associated at 2.4 GHz band.",

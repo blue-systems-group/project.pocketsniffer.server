@@ -4,11 +4,16 @@
     "title": "Traffic",
     "description": "Traffic seen by a station reported in monitor mode.",
     "type": "object",
-    "required": ["MAC", "traffics"],
+    "required": ["MAC", "timestamp", "traffics"],
     "properties": {
         "MAC": {
             "description": "Station MAC that collects this traffic.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult#/definitions/macAddr"
+        },
+        "timestamp": {
+            "description": "When this traffic statistics is collected.",
+            "type": "string",
+            "format": "date-time"
         },
         "traffics": {
             "description": "List of traffic flows.",
@@ -17,7 +22,7 @@
     },
     "definitions": {
         "traffic-entry": {
-            "required": ["channel", "begin", "end", "from", "to", "txBytes", "rxBytes"],
+            "required": ["channel", "begin", "end", "from", "to", "txBytes", "rxBytes", "avgTxRSSI", "avgRxRSSI"],
             "properties": {
                 "channel": {
                     "description": "On which channel that the station overhear this traffic.",
@@ -47,6 +52,14 @@
                 },
                 "rxBytes": {
                     "description": "Bytes transmitted to --> from.",
+                    "type": "integer"
+                },
+                "avgTxRSSI": {
+                    "description": "Average RSSI of packets of station from.",
+                    "type": "integer"
+                }
+                "avgRxRSSI": {
+                    "description": "Average RSSI of packets of station to.",
                     "type": "integer"
                 }
             }

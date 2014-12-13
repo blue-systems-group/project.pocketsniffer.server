@@ -4,7 +4,7 @@
     "title": "ScanResult",
     "description": "Scan results.",
     "type": "object",
-    "required": ["MAC", "timestamp", "detailed", "resultList"],
+    "required": ["MAC", "timestamp", "detailed"],
     "properties": {
         "MAC": {
             "description": "MAC address of the station that performed scan.",
@@ -26,6 +26,10 @@
             "items": {
                 "$ref": "#/definitions/scanResultEntry"
             }
+        }
+        "iwScanOutput": {
+            "description": "Output of iw scan. Clients can send raw iw scan output to AP, and AP will parse it.",
+            "type": "string"
         }
     },
     "definitions": {
@@ -52,6 +56,10 @@
                     "type": "integer"
                 },
 
+                "capabilities": {
+                    "description": "AP capabilities.",
+                    "type": "string"
+                },
                 "stationCount": {
                     "description": "Number of stations that associate with this AP. This information is obtained via iw scan.",
                     "type": "integer"

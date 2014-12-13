@@ -51,6 +51,10 @@
             },
             "uniqueItems": true
         },
+        "channelDwellTime": {
+            "description": "How long (in seconds) should the client snif one channel.",
+            "type": "integer"
+        },
         "band2g": {
             "description": "2.4 GHz band configuration.",
             "$ref": "#/definitions/bandConfiguration"
@@ -73,7 +77,6 @@
     },
     "definitions": {
         "bandConfiguration": {
-            "required": ["enable"],
             "properties": {
                 "enable": {
                     "description": "Whether to enable this band",
