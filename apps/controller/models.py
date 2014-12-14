@@ -6,56 +6,35 @@ from django.db import models
 MAX_SSID_LENGTH = 64
 BSSID_LENGTH = 17
 
-
 class AccessPoint(models.Model):
 
-  BSSID_2g = models.CharField(max_length=BSSID_LENGTH)
-  BSSID_5g = models.CharField(max_length=BSSID_LENGTH)
+  MAC = models.CharField(max_length=BSSID_LENGTH)
+  BSSID = models.CharField(max_length=BSSID_LENGTH)
+  SSID = models.CharField(max_length=MAX_SSID_LENGTH)
+  channel = models.IntegerField()
+  client_num = models.IntegerField(null=True)
+  load = models.FloatField(null=True)
 
-  SSID_2g = models.CharField(max_length=MAX_SSID_LENGTH, blank=True, null=True, default=None, db_index=True)
-  SSID_5g = models.CharField(max_length=MAX_SSID_LENGTH, blank=True, null=True, default=None, db_index=True)
-
-  chan_2g = models.IntegerField(db_index=True)
-  chan_5g = models.IntegerField(db_index=True)
-
-  client_num_2g = models.IntegerField(db_index=True, null=True)
-  client_num_5g = models.IntegerField(db_index=True, null=True)
-
-  load_2g = models.FloatField(null=True)
-  load_5g = models.FloatField(null=True)
-
-  is_sniffer_ap = models.BooleanField(default=False)
-
-  tx_power_dbm_2g = models.IntegerField(null=True)
-  tx_power_dbm_5g = models.IntegerField(null=True)
-
-  wan_mac = models.CharField(max_length=BSSID_LENGTH)
-  wan_ip_addr = models.CharField(max_length=128, null=True)
-
-  neighbor_aps = models.ManyToManyField('self', through='NeighborAP', through_fields=('myself', 'neighbor'), symmetrical=False)
-
+  sniffer_ap = models.BooleanField(default=False)
+  tx_power = models.IntegerField(null=True)
+  neighbor_aps = models.ManyToManyField('self', through='ScanResult', through_fields=('myself_ap', 'neighbor'), symmetrical=False)
 
   def __repr__(self):
     d = {}
-    for attr in ['SSID', 'BSSID', 'wan_mac', 'wan_ip', 'is_sniffer_ap']:
+    for attr in ['MAC', 'SSID', 'BSSID', 'channel']:
       d[attr] = getattr(self, attr, None)
     return json.dumps(d)
 
 
-
-class NeighborAP(models.Model):
-  myself = models.ForeignKey(AccessPoint, related_name='myself')
-  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor')
-  signal_2g = models.IntegerField(null=True)
-  signal_5g = models.IntegerField(null=True)
-  last_updated = models.DateTimeField(auto_now=True)
-
-
-
 class Station(models.Model):
-  mac = models.CharField(max_length=BSSID_LENGTH, primary_key=True)
 
-  is_sniffer_client = models.BooleanField(default=False)
+  MAC = models.CharField(max_length=BSSID_LENGTH)
+
+  associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations')
+  traffics = models.ManyToManyField(AccessPoint, related_name='station_traffic', through='Traffic', through_fields=('station', 'ap'), symmetrical=False)
+
+  sniffer_station = models.BooleanField(default=False)
+  scan_results = models.ManyToManyField(AccessPoint, related_name='visible_stations', through='ScanResult', through_fields=('myself_station', 'neighbor'), symmetrical=False)
 
   inactive_time = models.IntegerField(null=True)
   rx_bytes = models.BigIntegerField(null=True)
@@ -68,30 +47,22 @@ class Station(models.Model):
   tx_bitrate_mbps = models.IntegerField(null=True)
   tx_bitrate_mbps = models.IntegerField(null=True)
 
-  associcated_ap = models.ForeignKey(AccessPoint, related_name='associated_stations')
-
-  scanned_aps = models.ManyToManyField(AccessPoint, through='ScanResult', through_fields=('station', 'ap'), symmetrical=False, related_name='nearby_stations')
-
-  def __repr__(self):
-    d = {}
-    for attr in ['mac', 'is_sniffer_ap']:
-      d[attr] = getattr(self, attr, None)
-    return json.dumps(d)
-
-
 
 class ScanResult(models.Model):
-  station = models.ForeignKey(Station)
-  ap = models.ForeignKey(AccessPoint)
+  myself_ap = models.ForeignKey(AccessPoint, related_name='myself_ap')
+  myself_station = models.ForeignKey(Station, related_name='myself_station')
+  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor')
   signal = models.IntegerField(null=True)
   last_updated = models.DateTimeField(auto_now=True)
 
 
 class Traffic(models.Model):
+  hear_by = models.ForeignKey(Station, related_name='heard_traffic')
   station = models.ForeignKey(Station)
   ap = models.ForeignKey(AccessPoint)
   begin = models.DateTimeField(null=True)
   end = models.DateTimeField(null=True)
   tx_bytes = models.BigIntegerField(null=True)
   rx_bytes = models.BigIntegerField(null=True)
+  avg_signal = models.IntegerField(null=True)
   last_updated = models.DateTimeField(auto_now=True)
