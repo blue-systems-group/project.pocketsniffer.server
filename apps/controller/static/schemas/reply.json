@@ -60,7 +60,7 @@
     "definitions": {
         "latency": {
             "description": "Latency statistics between station and sniffer AP.",
-            "required": ["timestamp", "MAC", "minRTT", "maxRTT", "avgRTT", "stdDev"],
+            "required": ["timestamp", "MAC", "host", "packetTransmitted", "packetReceived"],
             "properties": {
                 "timestamp": {
                     "description": "When this measurement is performed.",
@@ -70,6 +70,18 @@
                 "MAC": {
                     "description": "Client who performed this measurement.",
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+                },
+                "host": {
+                    "description": "Host against which the latency is tested.",
+                    "type": "string"
+                },
+                "packetTransmitted": {
+                    "description": "How many packets were transmitted during test.",
+                    "type": "integer"
+                },
+                "packetReceived": {
+                    "description": "How many packets were received during test.",
+                    "type": "integer"
                 },
                 "minRTT": {
                     "description": "Minimum RTT in msec.",
@@ -91,7 +103,7 @@
         },
         "throughput": {
             "description": "Throughput statistics between station and sniffer AP.",
-            "required": ["timestamp", "MAC", "fileSize", "duration", "throughput"],
+            "required": ["timestamp", "MAC", "url", "success"],
             "properties": {
                 "timestamp": {
                     "description": "When this measurement is performed.",
@@ -101,6 +113,14 @@
                 "MAC": {
                     "description": "Client who performed this measurement.",
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+                },
+                "url": {
+                    "description": "Test file's url.",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "Whether download successed.",
+                    "type": "boolean"
                 },
                 "fileSize": {
                     "description": "File size (in bytes) that is downloaded.",

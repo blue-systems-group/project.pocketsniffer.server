@@ -67,15 +67,34 @@
             "$ref": "#/definitions/bandConfiguration"
         },
 
-        "client": {
-            "description": "The client that this request should be redirected to.",
-            "type": "string",
-            "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
+        "clients": {
+            "description": "Clients that this request should be redirected to.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+            }
         },
         "newBSSID": {
             "description": "New AP BSSID that the client should associate to.",
             "type": "string",
             "pattern": "^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$"
+        },
+        "hosts": {
+            "description": "Hosts that client should test latency or throughput agains.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "string"
+            }
+        },
+        "urls": {
+            "description": "Test file urls that should be downloadd to test throughput.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "string"
+            }
         }
     },
     "definitions": {
