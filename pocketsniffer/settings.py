@@ -35,6 +35,15 @@ AP_LIST = [
 
 SHELL_PLUS = 'ipython'
 
+BAND2G_CHANNELS = range(1, 12)
+BAND5G_CHANNELS = range(36, 49, 4) + range(149, 166, 4)
+
+SHELL_PLUS_PRE_IMPORTS = (
+    ('apps.controller.tasks', ('import_ap_list', 'collect')),
+    ('collections', 'Counter'),
+    'json',
+    )
+
 
 
 # Quick-start development settings - unsuitable for production
