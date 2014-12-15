@@ -3,7 +3,7 @@
     "title": "APStatus",
     "description": "AP status.",
     "type": "object",
-    "required": ["IP", "MAC", "band2g", "band5g"],
+    "required": ["IP", "MAC", "timestamp", "band2g", "band5g"],
     "properties": {
         "IP": {
             "description": "WAN IP address.",
@@ -13,6 +13,11 @@
         "MAC": {
             "description": "WAN MAC address.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+        },
+        "timestamp": {
+            "description": "When this status was collected.",
+            "type": "string",
+            "format": "date-time"
         },
         "band2g": {
             "description": "2.4 Ghz band information.",

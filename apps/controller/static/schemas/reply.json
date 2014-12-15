@@ -15,7 +15,10 @@
         },
         "apScan": {
             "description": "Reply for apScan request.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#"
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#"
+            }
         },
         "stationDump": {
             "description": "Reply for stationDump request.",
