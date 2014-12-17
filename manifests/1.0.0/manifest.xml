@@ -25,6 +25,7 @@
   </BatteryTask>
 
   <PingTask>
+    <disabled>true</disabled>
     <checkIntervalSec>300</checkIntervalSec>
     <hosts>
       <string>192.168.1.1</string>
@@ -52,6 +53,7 @@
   </ServerTask>
 
   <ThroughputTask>
+    <disabled>true</disabled>
     <checkIntervalSec>300</checkIntervalSec>
     <urls>
       <string>http://192.168.1.1:8080/downloads/test-50M.bin</string>
@@ -60,6 +62,11 @@
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <readTimeoutSec>10</readTimeoutSec>
   </ThroughputTask>
+
+  <ProximityTask>
+    <checkIntervalSec>300</checkIntervalSec>
+    <scanPeriodSec>30</scanPeriodSec>
+  </ProximityTask>
 
   <BuildInfoTask>
     <checkIntervalSec>900</checkIntervalSec>
