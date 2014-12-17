@@ -58,7 +58,15 @@
             "items": {
                 "$ref": "#/definitions/throughput"
             }
+        },
+        "nearbyDevices": {
+            "description": "A list of client's nearby devices.",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/neighborInfo"
+            }
         }
+
     },
     "definitions": {
         "latency": {
@@ -136,6 +144,45 @@
                 "throughput": {
                     "description": "Calculated throughput (in MBps).",
                     "type": "number"
+                }
+            }
+        },
+        "neighborInfo": {
+            "description": "Neighbor information for a client.",
+            "required": ["MAC", "timestamp"],
+            "properties": {
+                "MAC": {
+                    "description": "Device that provides this information.",
+                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+                },
+                "timestamp": {
+                    "description": "When this information is reported.",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "neighbors": {
+                    "description": "A list of neighbor devices.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "MAC": {
+                                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+                            },
+                            "signalStrength": {
+                                "type": "integer"
+                            },
+                            "lastSeen": {
+                                "description": "Last time saw this device.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "interested": {
+                                "description": "Whether the reporting device is willing to perform measurement for this device.",
+                                "type": "boolean"
+                            }
+                        }
+                    }
                 }
             }
         }
