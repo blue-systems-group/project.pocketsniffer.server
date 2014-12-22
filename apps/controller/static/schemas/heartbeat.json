@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Request",
+    "description": "A hearbeat message from AP to controller."
+    "type": "object",
+    "required": ["apStatus", "apScan", "stationDump"],
+    "properties": {
+        "apStatus": {
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/ap-status.json#"
+        },
+        "apScan": {
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#"
+            }
+        },
+        "stationDump": {
+            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/station-dump.json#"
+        }
+    }
+}
+ 
