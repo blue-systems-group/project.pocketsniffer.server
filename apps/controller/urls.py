@@ -22,6 +22,8 @@ with open(os.path.join(SCHEMA_DIR, 'heartbeat.json')) as f:
 
 @csrf_exempt
 def heartbeat_from_request(request):
+  logger.debug("Handling request.")
+
   try:
     heartbeat = json.loads(request.read())
   except:
@@ -46,5 +48,5 @@ def heartbeat_from_request(request):
 
 
 urlpatterns = patterns('',
-    url(r'^heartbeat/ap', heartbeat_from_request),
+    url(r'^heartbeat/ap$', heartbeat_from_request),
 )
