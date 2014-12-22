@@ -45,7 +45,7 @@
         "nearbyDevices": {
             "description": "Whether to collect client's nearby devices.",
             "type": "boolean"
-        }
+        },
 
         "trafficChannel": {
             "description": "If collect client traffic, which channel to listen.",
