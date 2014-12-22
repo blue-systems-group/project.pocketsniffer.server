@@ -239,6 +239,11 @@ LOGGING = {
         'level': 'DEBUG',
         'propagate': True,
         },
+      'controller': {
+        'handlers':['console_error', 'file_error', 'console_debug', 'file_debug'],
+        'level': 'DEBUG',
+        'propagate': True,
+        },
       'subdomains.middleware': {
         'handlers': ['console_error', 'file_error', 'console_debug', 'file_debug'],
         'level': 'ERROR',

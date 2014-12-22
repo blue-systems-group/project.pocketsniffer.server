@@ -1,10 +1,19 @@
 import json
+import logging
+
+from dateutil import parser
 
 from django.db import models
+from django.conf import settings
+
+
+from lib.common.utils import freq_to_channel
 
 
 MAX_SSID_LENGTH = 64
 BSSID_LENGTH = 17
+
+logger = logging.getLogger('controller')
 
 class AccessPoint(models.Model):
 
@@ -28,6 +37,73 @@ class AccessPoint(models.Model):
     for attr in ['MAC', 'IP', 'SSID', 'BSSID', 'channel']:
       d[attr] = getattr(self, attr, None)
     return json.dumps(d)
+
+  @classmethod
+  def handle_ap_status(cls, ap_status):
+    for band in ['band2g', 'band5g']:
+      if ap_status[band]['enabled']:
+        config = ap_status[band]
+        if AccessPoint.objects.filter(BSSID=config['BSSID']).exists():
+          ap = AccessPoint.objects.get(BSSID=config['BSSID'])
+        else:
+          if AccessPoint.objects.filter(MAC=ap_status['MAC'], BSSID=None).exists():
+            ap = AccessPoint.objects.get(MAC=ap_status['MAC'])
+          else:
+            ap = AccessPoint(BSSID=config['BSSID'])
+
+        ap.sniffer_ap = True
+        for attr in ['MAC', 'IP']:
+          setattr(ap, attr, ap_status[attr])
+        for attr in ['BSSID', 'SSID', 'channel', 'noise', 'enabled']:
+          setattr(ap, attr, config[attr])
+        ap.tx_power = config['txPower']
+        ap.last_status_update = parser.parse(ap_status['timestamp'])
+        ap.save()
+
+    for band, channels in [('band2g', range(1, 12)), ('band5g', range(36, 166))]:
+      if not ap_status[band]['enabled']:
+        try:
+          ap = AccessPoint.objects.filter(MAC=['MAC'], enabled=True, channel__in=channels)[0]
+          ap.enabled = False
+          ap.last_status_update = parser.parse(ap_status['timestamp'])
+          ap.save()
+        except:
+          pass
+
+
+  @classmethod
+  def handle_station_dump(cls, station_dump):
+    for band, channels in [('band2g', settings.BAND2G_CHANNELS), ('band5g', settings.BAND5G_CHANNELS)]:
+      if not AccessPoint.objects.filter(MAC=station_dump['MAC'], channel__in=channels).exists():
+        logger.warn("Access point %s at %s does not exist." % (station_dump['MAC'], band))
+        continue
+      ap = AccessPoint.objects.get(MAC=station_dump['MAC'], channel__in=channels)
+      for station in station_dump[band]:
+        sta, unused = Station.objects.get_or_create(MAC=station['MAC'])
+        for attr, key in [('IP', 'IP'), ('inactive_time', 'inactiveTime'), ('rx_bytes', 'rxBytes'), ('rx_packets', 'rxPackets'),\
+            ('tx_bytes', 'txBytes'), ('tx_packets', 'txPackets'), ('tx_fails', 'txFailures'), ('tx_retries', 'txRetries'),\
+            ('signal_avg', 'avgSignal'), ('tx_bitrate', 'txBitrate'), ('rx_bitrate', 'rxBitrate')]:
+          setattr(sta, attr, station.get(key, None))
+        sta.sniffer_station = True
+        sta.associate_with = ap
+        sta.last_updated = parser.parse(station_dump['timestamp'])
+        sta.save()
+
+
+  @classmethod
+  def handle_ap_scan(cls, ap_scan):
+    for scan_result in ap_scan:
+      ap, unused = AccessPoint.objects.get_or_create(BSSID=scan_result['MAC'])
+      for entry in scan_result['resultList']:
+        neighbor_ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['BSSID'])
+        neighbor_ap.SSID = entry['SSID']
+        neighbor_ap.channel = freq_to_channel(entry['frequency'])
+        neighbor_ap.client_num = entry.get('stationCount', None)
+        neighbor_ap.load = entry.get('bssLoad', None)
+        neighbor_ap.save()
+
+        ScanResult(myself_ap=ap, neighbor=neighbor_ap, signal=entry['RSSI'], timestamp=parser.parse(scan_result['timestamp'])).save()
+
 
 
 class Station(models.Model):

@@ -22,16 +22,6 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 
 logger = logging.getLogger('backend')
 
-def import_ap_list():
-  for mac, ip in settings.AP_LIST:
-    if AccessPoint.objects.filter(MAC=mac).exists():
-      logger.debug("AP %s (%s) already exists." % (mac, ip))
-      continue
-
-    logger.info("Creating AP %s (%s)." % (mac, ip))
-    AccessPoint(MAC=mac, IP=ip, sniffer_ap=True).save()
-
-
 class HandlerThread(threading.Thread):
 
   def __init__(self, conn, ap):

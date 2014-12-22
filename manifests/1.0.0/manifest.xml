@@ -2,15 +2,15 @@
 <manifest>
   <ManifestTask>
     <checkIntervalSec>900</checkIntervalSec>
-    <manifestURL>http://pocketsniffer.phone-lab.org/manifest</manifestURL>
-    <backupManifestURL>http://pocketsniffer.phone-lab.org/manifest</backupManifestURL>
+    <manifestURL>http://pocketsniffer.phone-lab.org/backend/manifest</manifestURL>
+    <backupManifestURL>http://pocketsniffer.phone-lab.org/backend/manifest</backupManifestURL>
     <backupManifestThreshold>8</backupManifestThreshold>
     <connectionTimeoutSec>10</connectionTimeoutSec>
   </ManifestTask>
 
   <UploaderTask>
     <checkIntervalSec>900</checkIntervalSec>
-    <loggerURL>http://pocketsniffer.phone-lab.org/upload/</loggerURL>
+    <loggerURL>http://pocketsniffer.phone-lab.org/backend/upload/</loggerURL>
     <connectionTimeoutSec>10</connectionTimeoutSec>
     <failureCount>8</failureCount>
     <chunkedTransferMode>true</chunkedTransferMode>
