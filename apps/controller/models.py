@@ -201,3 +201,18 @@ class Throughput(models.Model):
   file_size = models.IntegerField(null=True, default=None)
   duration = models.IntegerField(null=True, default=None)
   throughput = models.FloatField(null=True, default=None)
+
+
+
+class AlgorithmHistory(models.Model):
+  algo = models.CharField(max_length=128)
+  begin = models.DateTimeField(null=True, default=None)
+  end = models.DateTimeField(null=True, default=None)
+  celery_task_id = models.CharField(max_length=512, null=True, default=None)
+
+
+class APConfigHistory(models.Model):
+  timestamp = models.DateTimeField()
+  ap = models.ForeignKey(AccessPoint)
+  channel = models.IntegerField(null=True, default=None)
+  txpower = models.IntegerField(null=True, default=None)

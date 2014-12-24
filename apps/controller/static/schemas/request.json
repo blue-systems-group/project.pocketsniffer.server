@@ -8,7 +8,7 @@
         "action": {
             "description": "Action that is supposed to be performed by receiver.",
             "type": "string",
-            "enum": ["collect", "apConfig", "clientReassoc"]
+            "enum": ["collect", "apConfig", "clientReassoc", "triggerAlgorithm"]
         },
         "apStatus": {
             "description": "Whether to collect AP status, e.g., current channel, tx power, etc.",
@@ -62,6 +62,8 @@
             "description": "How long (in seconds) should the client snif one channel.",
             "type": "integer"
         },
+
+
         "band2g": {
             "description": "2.4 GHz band configuration.",
             "$ref": "#/definitions/bandConfiguration"

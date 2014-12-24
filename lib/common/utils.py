@@ -1,4 +1,7 @@
 
+import re
+import subprocess
+
 from django.conf import settings
 
 def recv_all(conn):
@@ -25,3 +28,11 @@ def channel_to_freq(chan):
     return 2412 + (chan-1)*5
   else:
     return 5180 + (chan-36)*5
+
+
+
+INET_ADDR_PATTERN = re.compile(r"""inet\saddr:(?P<IP>[\d\.]{7,15})\s""", re.VERBOSE)
+def get_iface_addr(iface):
+  output = subprocess.check_output('ifconfig %s' % (iface), shell=True)
+  match = INET_ADDR_PATTERN.search(output)
+  return match.group('IP')
