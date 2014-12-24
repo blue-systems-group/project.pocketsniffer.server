@@ -32,6 +32,7 @@
       <string>192.168.1.1</string>
     </hosts>
     <packetNum>10</packetNum>
+    <targetSSID>PocketSniffer</targetSSID>
   </PingTask>
 
   <ScanResultTask>
@@ -53,11 +54,14 @@
   <ThroughputTask>
     <checkIntervalSec>300</checkIntervalSec>
     <iperfHost>192.168.1.1</iperfHost>
-    <iperfPort>5001</iperfPort>
+    <iperfTCPPort>5001</iperfTCPPort>
+    <iperfUDPPort>5002</iperfUDPPort>
     <minFileSizeMB>50</minFileSizeMB>
     <maxFileSizeMB>100</maxFileSizeMB>
     <minIntervalSec>300</minIntervalSec>
     <maxIntervalSec>900</maxIntervalSec>
+    <targetSSID>PocketSniffer</targetSSID>
+    <udpProbability>1.1</udpProbability>
   </ThroughputTask>
 
   <ProximityTask>
