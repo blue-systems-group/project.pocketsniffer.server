@@ -16,7 +16,7 @@
     <chunkedTransferMode>true</chunkedTransferMode>
     <chunkSizeKB>64</chunkSizeKB>
     <minFilesToUpload>1</minFilesToUpload>
-    <requireCharging>true</requireCharging>
+    <requireCharging>false</requireCharging>
     <requireWifi>false</requireWifi>
   </UploaderTask>
 
