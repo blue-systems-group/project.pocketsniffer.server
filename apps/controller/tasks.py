@@ -1,10 +1,10 @@
 from __future__ import absolute_import
 
+import logging
 from datetime import datetime as dt
 
 from celery import shared_task
 
-import logging
 
 from apps.controller.models import AlgorithmHistory
 
