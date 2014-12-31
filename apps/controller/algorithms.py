@@ -12,6 +12,7 @@ from datetime import datetime as dt
 
 
 from django.conf import settings
+from django.db.models import Q
 
 from apps.controller.models import AccessPoint, ScanResult, Station, Traffic
 from lib.common.utils import recv_all, freq_to_channel, get_iface_addr
@@ -35,6 +36,7 @@ class Algorithm(object):
     super(Algorithm, self).__init__()
     self.intervalSec = 300
     self.last_trigger = None
+    self.last_request = None
 
 
   @classmethod
@@ -158,6 +160,7 @@ class Algorithm(object):
       sniffer_aps = sniffer_aps.filter(BSSID__in=kwargs['limit_aps'])
       logger.debug("Restricting to %d aps." % (len(sniffer_aps)))
 
+    self.last_request = dt.now()
     msg = json.dumps(request)
 
     expect_reply = request['action'] == 'collect'
@@ -192,6 +195,21 @@ class Algorithm(object):
 
   def trigger(self, reason, **kwargs):
     pass
+
+
+  def disable(self, band):
+    if band == 'band2g':
+      channels = settings.BAND2G_CHANNELS
+    elif band == 'band5g':
+      channels = settings.BAND5G_CHANNELS
+    else:
+      logger.error("Invalid band %s" % (band))
+      return
+
+    for ap in AccessPoint.objects.filter(sniffer_ap=True, enabled=True, channel__in=channels):
+      logger.debug("Disabling %s of %s (%s)." % (band, ap.MAC, ap.IP))
+      self.send_request({'action': 'apConfig', band:{'enable':False}}, limit_aps=[ap.BSSID])
+
 
   def run(self):
     try:
@@ -229,7 +247,7 @@ class Algorithm(object):
         logger.exception("Failed to validate request.")
         continue
 
-      self.trigger(Algorithm.TRIGGER_REASON_REQUEST, request=request)
+      self.trigger(Algorithm.TRIGGER_REASON_REQUEST, request=request, ip=addr[0])
       self.last_trigger = dt.now()
 
     try:
@@ -245,37 +263,145 @@ class StaticAssignment(Algorithm):
   def __init__(self, *args, **kwargs):
     super(StaticAssignment, self).__init__(*args, **kwargs)
 
-    logger.debug("Collecting AP status.")
-    request = {'action': 'collect', 'apStatus': True}
-    self.send_request(request)
-
-
-    self.send_request({'action': 'apConfig', 'band2g':{'enable':False}})
-
-    for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND5G_CHANNELS):
-      request = {'action': 'apConfig', 'band5g':{}}
-      request['band5g']['enable'] = True
-      request['band5g']['channel'] = random.choice(settings.BAND5G_CHANNELS)
-      self.send_request(request, limit_aps=[ap.BSSID])
+    self.ap_channels = dict()
 
 
   def trigger(self, reason, **kwargs):
-    pass
+    if reason == Algorithm.TRIGGER_REASON_REQUEST:
+      logger.debug("Ignoring channel assignment request from ap.")
+      return
 
+    self.disable('band5g')
+
+    logger.debug("Collecting AP status.")
+    self.send_request({'action': 'collect', 'apStatus': True})
+
+
+    for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
+      if ap.BSSID in self.ap_channels and ap.channel == self.ap_channels[ap.BSSID]:
+        continue
+      request = {'action': 'apConfig', 'band2g':{'enable': True}}
+      if ap.BSSID not in self.ap_channels:
+        self.ap_channels[ap.BSSID] = random.choice(settings.BAND2G_CHANNELS)
+      logger.debug("Assign channel %d to %s (%s)" % (self.ap_channels[ap.BSSID], ap.BSSID, ap.IP))
+      request['band2g']['channel'] = self.ap_channels[ap.BSSID]
+      self.send_request(request, limit_aps=[ap.BSSID])
 
 
 class RandomAssignment(Algorithm):
 
-  def run(self):
-    pass
+  def trigger(self, reason, **kwargs):
+    self.disable('band5g')
 
+    logger.debug("Collecting AP status.")
+    self.send_request({'action': 'collect', 'apStatus': True})
 
-class LCCS(Algorithm):
-  pass
+    for ap in AccessPoint.objects.filter(sniffer_ap=True, enabled=True, channel__in=settings.BAND5G_CHANNELS):
+      logger.debug("Disabling 5 GHz band of %s (%s)." % (ap.MAC, ap.IP))
+      self.send_request({'action': 'apConfig', 'band5g':{'enable':False}}, limit_aps=[ap.BSSID])
+
+    for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
+      request = {'action': 'apConfig', 'band2g':{'enable': True}}
+      request['band2g']['channel'] = random.choice(settings.BAND2G_CHANNELS)
+      logger.debug("Assign channel %d to %s (%s)" % (request['band2g']['channel'], ap.BSSID, ap.IP))
+      self.send_request(request, limit_aps=[ap.BSSID])
 
 
 class WeightedGraphColor(Algorithm):
-  pass
+
+  def __init__(self, *args, **kwargs):
+    super(WeightedGraphColor, self).__init__(*args, **kwargs)
+    self.coordinate = kwargs.get('coordinate', False)
+
+
+  def Ifactor(self, ap1, ap2):
+    if ap1.channel == ap2.channel:
+      return 1
+    else:
+      return 0
+
+  def weight(self, ap1, ap2):
+    client_num = 0
+    overhear_num = 0
+
+    if self.coordinate and ap1.sniffer_ap and ap2.sniffer_ap:
+      client_num = Station.objects.filter(Q(associate_with=ap1) | Q(associate_with=ap2)).count()
+      for a, b in [(ap1, ap2), (ap2, ap1)]:
+        for sta in Station.objects.filter(associate_with=a):
+          if ScanResult.objects.filter(timestamp__gte=self.last_request, myself_station=sta, neighbor=b).exists():
+            overhear_num += 1
+    else:
+      client_num = Station.objects.filter(associate_with=ap1).count()
+      for sta in Station.objects.filter(associate_with=ap1):
+        if ScanResult.objects.filter(timestamp__gte=self.last_request, myself_station=sta, neighbor=ap2).exists():
+          overhear_num += 1
+
+    if client_num == 0:
+      return 0
+    else:
+      return float(overhear_num) / client_num
+
+
+  def trigger(self, reason, **kwargs):
+    if reason == Algorithm.TRIGGER_REASON_REQUEST:
+      logger.debug("Ignoring channel assignment request from ap.")
+      return
+
+    self.send_request({'action': 'collect', 'apScan': True, 'clientScan': True})
+
+    for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
+      H = dict()
+      for c in settings.BAND2G_CHANNELS:
+        H[c] = 0
+        for neighbor in ap.neighbor_aps:
+          H[c] = max(H[c], self.Ifactor(ap, neighbor)*self.weight(ap, neighbor))
+      c = min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+
+      request = {'action': 'apConfig', 'band2g':{'enable': True}}
+      request['band2g']['channel'] = c
+      logger.debug("Assign channel %d to %s (%s)" % (c, ap.BSSID, ap.IP))
+      self.send_request(request, limit_aps=[ap.BSSID])
+
 
 class ConflictSet(Algorithm):
   pass
+
+
+class OurAlgorithm(Algorithm):
+
+  def trigger(self, reason, **kwargs):
+    if reason == Algorithm.TRIGGER_REASON_TIMEOUT:
+      logger.debug("Ignore periodic trigger.")
+      return
+
+    ip = kwargs['ip']
+    try:
+      ap = AccessPoint.object.filter(sniffer_ap=True, enabled=True, channel__in=settings.BAND2G_CHANNELS, IP=ip)[0]
+    except:
+      logger.error("No AP with ip %s found." % (ip))
+      return
+
+    request = kwargs['request']
+    clients = request['clients']
+
+    request['action'] = 'collect'
+    request['clientTraffic'] = True
+    request['trafficChannel'] = settings.BAND2G_CHANNELS
+    request['channelDwellTime'] = 10
+
+    self.send_request(request, limit_aps=[ap.BSSID])
+
+    H = dict()
+    for c in settings.BAND2G_CHANNELS:
+      H[c] = 0
+      for t in Traffic.object.filter(timestamp__gte=self.last_request, channel=c, for_sta__MAC__in=clients).exclude(from_station__MAC__in=clients):
+        H[c] += t.rx_bytes + t.tx_bytes
+      logger.debug("%d bytes on channel %d" % (H[c], c))
+
+    logger.debug("traffic map: %s" % (json.dump(H)))
+    c = min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+
+    if c != ap.channel and H[ap.channel] > 1.2 * H[c]:
+      request = {'action': 'apConfig', 'band2g':{'channel': c}}
+      logger.debug("Assign channel %d to AP %s." % (c, ap.BSSID))
+      self.send_request(request, limit_aps=[ap.BSSID])

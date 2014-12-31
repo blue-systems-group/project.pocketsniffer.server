@@ -161,6 +161,7 @@ class ScanResult(models.Model):
 
 class Traffic(models.Model):
   hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None)
+  for_sta = models.ForeignKey(Station, related_name='for_sta', null=True, default=None)
   from_station = models.ForeignKey(Station, null=True, default=None)
   to_ap = models.ForeignKey(AccessPoint, null=True, default=None)
   begin = models.DateTimeField(null=True, default=None)

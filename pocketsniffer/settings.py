@@ -31,7 +31,7 @@ PUBLIC_IFACE = 'eth0'
 
 SHELL_PLUS = 'ipython'
 
-BAND2G_CHANNELS = range(1, 12)
+BAND2G_CHANNELS = [1, 6, 11]
 BAND5G_CHANNELS = range(36, 49, 4) + range(149, 166, 4)
 
 SHELL_PLUS_PRE_IMPORTS = (
