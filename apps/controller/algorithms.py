@@ -14,7 +14,7 @@ from datetime import datetime as dt
 from django.conf import settings
 from django.db.models import Q
 
-from apps.controller.models import AccessPoint, ScanResult, Station, Traffic
+from apps.controller.models import AccessPoint, ScanResult, Station, Traffic, Terminal
 from lib.common.utils import recv_all, freq_to_channel, get_iface_addr
 
 logger = logging.getLogger('controller')
@@ -67,52 +67,20 @@ class Algorithm(object):
   def handle_client_traffic(cls, reply):
     for traffic in reply['clientTraffic']:
       origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
+      for_sta, unused = Station.objects.get_or_create(MAC=traffic['targetDevice'])
       for entry in traffic['traffics']:
-        uplink = None
-        if not (Station.objects.filter(MAC__in=[entry['from'], entry['to']]).exists() or\
-            AccessPoint.objects.filter(BSSID__in=[entry['from'], entry['to']]).exists()):
-          logger.error("Station or AP missing. Ignore traffic %s --> %s" % (entry['from'], entry['to']))
-          continue
+        src, created = Station.objects.get_or_create(MAC=entry['src'])
+        if created:
+          src.save()
 
-        if AccessPoint.objects.filter(BSSID=entry['from']).exists():
-          ap = AccessPoint.objects.get(BSSID=entry['from'])
-          sta, unused = Station.objects.get_or_create(MAC=entry['to'])
-          uplink = False
-        elif AccessPoint.objects.filter(BSSID=entry['to']).exists():
-          sta, unused = Station.objects.get_or_create(MAC=entry['from'])
-          ap = AccessPoint.objects.get(BSSID=entry['to'])
-          uplink = True
-        elif Station.objects.filter(MAC=entry['from']).exists():
-          sta = Station.objects.get(MAC=entry['from'])
-          ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['to'])
-          uplink = True
-        elif Station.objects.filter(MAC=entry['to']).exists():
-          ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['to'])
-          sta = Station.objects.get(MAC=entry['to'])
-          uplink = False
-
-        if uplink is None:
-          logger.debug("Can not determine uplink: %s --> %s" % (entry['from'], entry['to']))
-          continue
-
-        sta.associate_with = ap
-        sta.save()
-
-        tfc = Traffic(hear_by=origin_sta, from_station=sta, to_ap=ap)
+        tfc = Traffic(hear_by=origin_sta, for_sta=for_sta, src=src)
         tfc.begin = parser.parse(entry['begin'])
         tfc.end = parser.parse(entry['end'])
         tfc.timestamp = parser.parse(traffic['timestamp'])
         tfc.channel = entry['channel']
-        if uplink is True:
-          tfc.tx_bytes = entry['txBytes']
-          tfc.rx_bytes = entry['rxBytes']
-          tfc.avg_tx_rssi = entry['avgTxRSSI']
-          tfc.avg_rx_rssi = entry['avgRxRSSI']
-        else:
-          tfc.tx_bytes = entry['rxBytes']
-          tfc.rx_bytes = entry['txBytes']
-          tfc.avg_tx_rssi = entry['avgRxRSSI']
-          tfc.avg_rx_rssi = entry['avgTxRSSI']
+        tfc.packets = entry['packets']
+        tfc.retry_packets = entry['retryPackets']
+        tfc.avg_rssi = entry['avgRSSI']
         tfc.save()
 
 

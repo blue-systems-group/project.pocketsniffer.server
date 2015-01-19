@@ -111,7 +111,6 @@ class Station(models.Model):
   MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
 
   associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None)
-  traffics = models.ManyToManyField(AccessPoint, related_name='station_traffic', through='Traffic', through_fields=('from_station', 'to_ap'), symmetrical=False)
 
   sniffer_station = models.BooleanField(default=False)
   phonelab_station = models.BooleanField(default=False)
@@ -157,29 +156,17 @@ class ScanResult(models.Model):
     return json.dumps(d)
 
 
-
-
 class Traffic(models.Model):
   hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None)
-  for_sta = models.ForeignKey(Station, related_name='for_sta', null=True, default=None)
-  from_station = models.ForeignKey(Station, null=True, default=None)
-  to_ap = models.ForeignKey(AccessPoint, null=True, default=None)
+  for_sta = models.ForeignKey(Station, related_name='for_station', null=True, default=None)
+  src = models.ForeignKey(Station, null=True, default=None)
   begin = models.DateTimeField(null=True, default=None)
   end = models.DateTimeField(null=True, default=None)
-  tx_bytes = models.BigIntegerField(null=True, default=None)
-  rx_bytes = models.BigIntegerField(null=True, default=None)
-  avg_tx_rssi = models.IntegerField(null=True, default=None)
-  avg_rx_rssi = models.IntegerField(null=True, default=None)
+  packets = models.BigIntegerField(null=True, default=None)
+  retry_packets = models.BigIntegerField(null=True, default=None)
+  avg_rssi = models.IntegerField(null=True, default=None)
   channel = models.IntegerField(null=True, default=None)
   timestamp = models.DateTimeField(null=True, default=None)
-
-  def __repr__(self):
-    d = {}
-    for attr in ['MAC', 'sniffer_station', 'phonelab_station']:
-      d[attr] = getattr(self, attr, None)
-    return json.dumps(d)
-
-
 
 
 class Latency(models.Model):

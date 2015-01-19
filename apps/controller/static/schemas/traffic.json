@@ -25,7 +25,7 @@
     },
     "definitions": {
         "traffic-entry": {
-            "required": ["channel", "begin", "end", "from", "to", "txBytes", "rxBytes", "avgTxRSSI", "avgRxRSSI"],
+            "required": ["channel", "begin", "end", "src", "packets", "retryPackets", "avgRSSI"],
             "properties": {
                 "channel": {
                     "description": "On which channel that the station overhear this traffic.",
@@ -41,33 +41,24 @@
                     "type": "string",
                     "format": "date-time"
                 },
-                "from": {
+                "src": {
                     "description": "Traffic source.",
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
-                "to": {
-                    "description": "Traffic destination.",
-                    "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
-                },
-                "txBytes": {
-                    "description": "Bytes transmitted from --> to.",
+                "packets": {
+                    "description": "Number of packets transmitted by src.",
                     "type": "integer"
                 },
-                "rxBytes": {
-                    "description": "Bytes transmitted to --> from.",
+                "retryPackets": {
+                    "description": "Number of retry packets.",
                     "type": "integer"
                 },
-                "avgTxRSSI": {
-                    "description": "Average RSSI of packets of station from.",
+                "avgRSSI": {
+                    "description": "Average RSSI of packets from src.",
                     "type": "integer"
                 },
-                "avgRxRSSI": {
-                    "description": "Average RSSI of packets of station to.",
-                    "type": "integer"
-                }
             }
         }
     },
     "additionalProperties": false
 }
- 
