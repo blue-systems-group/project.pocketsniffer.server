@@ -9,9 +9,12 @@
             "description": "Station MAC that collects this traffic.",
             "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
         },
-        "targetDevice": {
+        "forDevices": {
             "description": "Which station that this traffic data is collected for.",
-            "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+            "type": "array",
+            "items": {
+                "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
+            }
         },
         "timestamp": {
             "description": "When this traffic statistics is collected.",

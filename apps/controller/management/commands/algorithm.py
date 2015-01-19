@@ -4,13 +4,11 @@ from django.core.management.base import BaseCommand, CommandError
 
 from celery.task.control import revoke
 
-from apps.controller.algorithms import StaticAssignment
+from apps.controller.algorithms import StaticAssignment, RandomAssignment, WeightedGraphColor, OurAlgorithm
 from apps.controller.tasks import run_algorithm
 from apps.controller.models import AlgorithmHistory
 
-ALGORITHM_MAPPING = {
-    StaticAssignment.__name__: StaticAssignment,
-    }
+ALGORITHM_MAPPING = dict((a.__name__, a) for a in [StaticAssignment, RandomAssignment, WeightedGraphColor, OurAlgorithm])
 
 class Command(BaseCommand):
   args = '<algo> <action> [options]'
