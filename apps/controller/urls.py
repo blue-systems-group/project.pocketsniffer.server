@@ -38,9 +38,14 @@ def heartbeat_from_request(request):
     raise Http404
 
   
-  AccessPoint.handle_ap_status(heartbeat['apStatus'])
-  AccessPoint.handle_station_dump(heartbeat['stationDump'])
-  AccessPoint.handle_ap_scan(heartbeat['apScan'])
+  try:
+    AccessPoint.handle_ap_status(heartbeat['apStatus'])
+    AccessPoint.handle_station_dump(heartbeat['stationDump'])
+    AccessPoint.handle_ap_scan(heartbeat['apScan'])
+  except:
+    logger.exception("Failed to handle heartbeat.")
+    raise Http404
+
   return HttpResponse()
 
 

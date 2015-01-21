@@ -59,7 +59,7 @@
                 "avgRSSI": {
                     "description": "Average RSSI of packets from src.",
                     "type": "integer"
-                },
+                }
             }
         }
     },

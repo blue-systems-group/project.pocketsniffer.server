@@ -14,7 +14,7 @@ from datetime import datetime as dt
 from django.conf import settings
 from django.db.models import Q
 
-from apps.controller.models import AccessPoint, ScanResult, Station, Traffic, Terminal
+from apps.controller.models import AccessPoint, ScanResult, Station, Traffic
 from lib.common.utils import recv_all, freq_to_channel, get_iface_addr
 
 logger = logging.getLogger('controller')
@@ -67,13 +67,13 @@ class Algorithm(object):
   def handle_client_traffic(cls, reply):
     for traffic in reply['clientTraffic']:
       origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
-      for_sta, unused = Station.objects.get_or_create(MAC=traffic['targetDevice'])
+      for_devices = json.dumps(traffic['forDevices'])
       for entry in traffic['traffics']:
         src, created = Station.objects.get_or_create(MAC=entry['src'])
         if created:
           src.save()
 
-        tfc = Traffic(hear_by=origin_sta, for_sta=for_sta, src=src)
+        tfc = Traffic(hear_by=origin_sta, for_devices=for_devices, src=src)
         tfc.begin = parser.parse(entry['begin'])
         tfc.end = parser.parse(entry['end'])
         tfc.timestamp = parser.parse(traffic['timestamp'])
@@ -101,7 +101,7 @@ class Algorithm(object):
       logger.debug(json.dumps(reply))
       return
 
-    logger.debug("Got reply from %s" % (ap.BSSID))
+    logger.debug("Got reply from %s: %s" % (ap.BSSID, json.dumps(reply)))
 
     HANDLER_MAPPING = {
         'apStatus': AccessPoint.handle_ap_status,
@@ -115,7 +115,7 @@ class Algorithm(object):
     for t, handler in HANDLER_MAPPING.items():
       try:
         if reply['request'].get(t, False):
-          handler(reply[t])
+          handler(reply)
       except:
         logger.exception("Failed to handle %s" % (t))
 
@@ -127,6 +127,8 @@ class Algorithm(object):
     if 'limit_aps' in kwargs:
       sniffer_aps = sniffer_aps.filter(BSSID__in=kwargs['limit_aps'])
       logger.debug("Restricting to %d aps." % (len(sniffer_aps)))
+
+    sniffer_aps = sniffer_aps.distinct('IP')
 
     self.last_request = dt.now()
     msg = json.dumps(request)
@@ -239,8 +241,6 @@ class StaticAssignment(Algorithm):
       logger.debug("Ignoring channel assignment request from ap.")
       return
 
-    self.disable('band5g')
-
     logger.debug("Collecting AP status.")
     self.send_request({'action': 'collect', 'apStatus': True})
 
@@ -259,14 +259,8 @@ class StaticAssignment(Algorithm):
 class RandomAssignment(Algorithm):
 
   def trigger(self, reason, **kwargs):
-    self.disable('band5g')
-
     logger.debug("Collecting AP status.")
     self.send_request({'action': 'collect', 'apStatus': True})
-
-    for ap in AccessPoint.objects.filter(sniffer_ap=True, enabled=True, channel__in=settings.BAND5G_CHANNELS):
-      logger.debug("Disabling 5 GHz band of %s (%s)." % (ap.MAC, ap.IP))
-      self.send_request({'action': 'apConfig', 'band5g':{'enable':False}}, limit_aps=[ap.BSSID])
 
     for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
       request = {'action': 'apConfig', 'band2g':{'enable': True}}
@@ -344,32 +338,37 @@ class OurAlgorithm(Algorithm):
 
     ip = kwargs['ip']
     try:
-      ap = AccessPoint.object.filter(sniffer_ap=True, enabled=True, channel__in=settings.BAND2G_CHANNELS, IP=ip)[0]
+      ap = AccessPoint.objects.filter(sniffer_ap=True, enabled=True, channel__in=settings.BAND2G_CHANNELS, IP=ip)[0]
     except:
-      logger.error("No AP with ip %s found." % (ip))
+      logger.exception("No AP with ip %s found." % (ip))
       return
 
     request = kwargs['request']
-    clients = request['clients']
-
     request['action'] = 'collect'
     request['clientTraffic'] = True
     request['trafficChannel'] = settings.BAND2G_CHANNELS
-    request['channelDwellTime'] = 10
+    request['channelDwellTime'] = 5
 
     self.send_request(request, limit_aps=[ap.BSSID])
 
+    clients = [c.MAC for c in Station.objects.filter(associate_with=ap)]
+    src_excludes = clients + [ap.BSSID]
+
+    logger.debug("All clients: %s" % (str(clients)))
+    logger.debug("Exclude stations: %s" % (str(src_excludes)))
+
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      H[c] = 0
-      for t in Traffic.object.filter(timestamp__gte=self.last_request, channel=c, for_sta__MAC__in=clients).exclude(from_station__MAC__in=clients):
-        H[c] += t.rx_bytes + t.tx_bytes
-      logger.debug("%d bytes on channel %d" % (H[c], c))
+      H[c] = {'packets': 0, 'retry_packets': 0}
+      for t in Traffic.objects.filter(last_updated__gte=self.last_request, channel=c).exclude(src__MAC__in=src_excludes):
+        H[c]['packets'] += t.packets
+        H[c]['retry_packets'] += t.retry_packets
+      logger.debug("%d (%d) packets on channel %d" % (H[c]['packets'], H[c]['retry_packets'], c))
 
-    logger.debug("traffic map: %s" % (json.dump(H)))
-    c = min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+    logger.debug("traffic map: %s" % (json.dumps(H)))
+    c = min(settings.BAND2G_CHANNELS, key=lambda t: H[t]['packets'])
 
-    if c != ap.channel and H[ap.channel] > 1.2 * H[c]:
+    if c != ap.channel and H[ap.channel]['packets'] > 1.2 * H[c]['packets']:
       request = {'action': 'apConfig', 'band2g':{'channel': c}}
       logger.debug("Assign channel %d to AP %s." % (c, ap.BSSID))
       self.send_request(request, limit_aps=[ap.BSSID])

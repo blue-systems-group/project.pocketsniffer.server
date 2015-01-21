@@ -13,6 +13,7 @@ kombu==3.0.24
 lxml==3.4.0
 psycopg2==2.5.4
 pygraphviz==1.2
+pyinotify==0.9.5
 python-dateutil==2.3
 pytz==2014.10
 six==1.8.0

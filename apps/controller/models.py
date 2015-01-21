@@ -5,6 +5,7 @@ from dateutil import parser
 
 from django.db import models
 from django.conf import settings
+from datetime import datetime as dt
 
 
 from lib.common.utils import freq_to_channel
@@ -78,6 +79,7 @@ class AccessPoint(models.Model):
         logger.warn("Access point %s at %s does not exist." % (station_dump['MAC'], band))
         continue
       ap = AccessPoint.objects.get(MAC=station_dump['MAC'], channel__in=channels)
+      now = dt.now()
       for station in station_dump[band]:
         sta, unused = Station.objects.get_or_create(MAC=station['MAC'])
         for attr, key in [('IP', 'IP'), ('inactive_time', 'inactiveTime'), ('rx_bytes', 'rxBytes'), ('rx_packets', 'rxPackets'),\
@@ -86,8 +88,9 @@ class AccessPoint(models.Model):
           setattr(sta, attr, station.get(key, None))
         sta.sniffer_station = True
         sta.associate_with = ap
-        sta.last_updated = parser.parse(station_dump['timestamp'])
         sta.save()
+      Station.objects.filter(associate_with=ap, last_updated__lt=now).delete()
+
 
 
   @classmethod
@@ -129,7 +132,7 @@ class Station(models.Model):
   tx_bitrate = models.IntegerField(null=True, default=None)
   rx_bitrate = models.IntegerField(null=True, default=None)
 
-  last_updated = models.DateTimeField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
   def __repr__(self):
     d = {}
@@ -144,6 +147,7 @@ class ScanResult(models.Model):
   neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None)
   signal = models.IntegerField(null=True, default=None)
   timestamp = models.DateTimeField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
   def __repr__(self):
     d = {}
@@ -157,8 +161,9 @@ class ScanResult(models.Model):
 
 
 class Traffic(models.Model):
+  timestamp = models.DateTimeField(null=True, default=None)
   hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None)
-  for_sta = models.ForeignKey(Station, related_name='for_station', null=True, default=None)
+  for_devices = models.TextField(null=True, blank=True, default=None)
   src = models.ForeignKey(Station, null=True, default=None)
   begin = models.DateTimeField(null=True, default=None)
   end = models.DateTimeField(null=True, default=None)
@@ -166,7 +171,7 @@ class Traffic(models.Model):
   retry_packets = models.BigIntegerField(null=True, default=None)
   avg_rssi = models.IntegerField(null=True, default=None)
   channel = models.IntegerField(null=True, default=None)
-  timestamp = models.DateTimeField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
 
 class Latency(models.Model):
@@ -179,6 +184,7 @@ class Latency(models.Model):
   max_rtt = models.FloatField(null=True, default=None)
   avg_rtt = models.FloatField(null=True, default=None)
   std_dev = models.FloatField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
 
 class Throughput(models.Model):
@@ -189,6 +195,7 @@ class Throughput(models.Model):
   file_size = models.IntegerField(null=True, default=None)
   duration = models.IntegerField(null=True, default=None)
   throughput = models.FloatField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
 
 
@@ -197,6 +204,7 @@ class AlgorithmHistory(models.Model):
   begin = models.DateTimeField(null=True, default=None)
   end = models.DateTimeField(null=True, default=None)
   celery_task_id = models.CharField(max_length=512, null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
 
 class APConfigHistory(models.Model):
@@ -204,3 +212,4 @@ class APConfigHistory(models.Model):
   ap = models.ForeignKey(AccessPoint)
   channel = models.IntegerField(null=True, default=None)
   txpower = models.IntegerField(null=True, default=None)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)

@@ -3,6 +3,7 @@
 /import
 /media
 /static
+/logs
 /.settings
 /.project
 /.pydevproject

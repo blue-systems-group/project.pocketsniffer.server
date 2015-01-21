@@ -32,13 +32,13 @@
       <string>192.168.1.1</string>
     </hosts>
     <packetNum>10</packetNum>
-    <targetSSID>PocketSniffer</targetSSID>
+    <targetSSID>PocketSniffer2</targetSSID>
   </PingTask>
 
   <ScanResultTask>
     <checkIntervalSec>300</checkIntervalSec>
-    <targetSSID>PocketSniffer</targetSSID>
-    <preSharedKey>LDR9OXnevs5lBlCjz0MNga2H40DlT2m0</preSharedKey>
+    <targetSSID>PocketSniffer2</targetSSID>
+    <preSharedKey>abcd1234</preSharedKey>
     <minRSSI>-70</minRSSI>
     <promptIntervalSec>300</promptIntervalSec>
     <forceConnect>true</forceConnect>
@@ -47,21 +47,21 @@
   <ServerTask>
     <checkIntervalSec>300</checkIntervalSec>
     <serverPort>6543</serverPort>
-    <targetSSID>PocketSniffer</targetSSID>
+    <targetSSID>PocketSniffer2</targetSSID>
     <connectionTimeoutSec>30</connectionTimeoutSec>
   </ServerTask>
 
   <ThroughputTask>
     <checkIntervalSec>300</checkIntervalSec>
     <iperfHost>192.168.1.1</iperfHost>
-    <iperfTCPPort>5001</iperfTCPPort>
-    <iperfUDPPort>5002</iperfUDPPort>
-    <minFileSizeMB>50</minFileSizeMB>
-    <maxFileSizeMB>100</maxFileSizeMB>
+    <iperfTCPPort>5555</iperfTCPPort>
+    <iperfUDPPort>6666</iperfUDPPort>
+    <minDurationSec>20</minDurationSec>
+    <maxDurationSec>30</maxDurationSec>
     <minIntervalSec>300</minIntervalSec>
     <maxIntervalSec>900</maxIntervalSec>
-    <targetSSID>PocketSniffer</targetSSID>
-    <udpProbability>1.1</udpProbability>
+    <targetSSID>PocketSniffer2</targetSSID>
+    <udpProbability>0.5</udpProbability>
   </ThroughputTask>
 
   <ProximityTask>
