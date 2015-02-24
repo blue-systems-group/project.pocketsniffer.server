@@ -25,6 +25,7 @@
   </BatteryTask>
 
   <PingTask>
+    <disabled>true</disabled>
     <checkIntervalSec>300</checkIntervalSec>
     <minIntervalSec>300</minIntervalSec>
     <maxIntervalSec>900</maxIntervalSec>
@@ -37,31 +38,32 @@
 
   <ScanResultTask>
     <checkIntervalSec>300</checkIntervalSec>
-    <targetSSID>PocketSniffer2</targetSSID>
+    <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>
     <preSharedKey>abcd1234</preSharedKey>
     <minRSSI>-70</minRSSI>
     <promptIntervalSec>300</promptIntervalSec>
-    <forceConnect>true</forceConnect>
   </ScanResultTask>
 
   <ServerTask>
     <checkIntervalSec>300</checkIntervalSec>
     <serverPort>6543</serverPort>
-    <targetSSID>PocketSniffer2</targetSSID>
+    <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>
     <connectionTimeoutSec>30</connectionTimeoutSec>
+    <acceptTimeoutSec>5</acceptTimeoutSec>
   </ServerTask>
 
   <ThroughputTask>
+    <disabled>true</disabled>
     <checkIntervalSec>300</checkIntervalSec>
     <iperfHost>192.168.1.1</iperfHost>
     <iperfTCPPort>5555</iperfTCPPort>
     <iperfUDPPort>6666</iperfUDPPort>
-    <minDurationSec>20</minDurationSec>
-    <maxDurationSec>30</maxDurationSec>
+    <minDurationSec>120</minDurationSec>
+    <maxDurationSec>120</maxDurationSec>
     <minIntervalSec>300</minIntervalSec>
     <maxIntervalSec>900</maxIntervalSec>
     <targetSSID>PocketSniffer2</targetSSID>
-    <udpProbability>0.5</udpProbability>
+    <udpProbability>1</udpProbability>
   </ThroughputTask>
 
   <ProximityTask>

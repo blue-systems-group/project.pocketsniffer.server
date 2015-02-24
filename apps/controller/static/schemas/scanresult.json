@@ -21,7 +21,6 @@
         "resultList": {
             "description": "List of scan results.",
             "type": "array",
-            "minItems": 1,
             "items": {
                 "$ref": "#/definitions/scanResultEntry"
             }

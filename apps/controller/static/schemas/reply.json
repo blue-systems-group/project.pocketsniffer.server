@@ -71,7 +71,7 @@
     "definitions": {
         "latency": {
             "description": "Latency statistics between station and sniffer AP.",
-            "required": ["timestamp", "MAC", "host", "packetTransmitted", "packetReceived"],
+            "required": ["timestamp", "MAC", "pingArgs", "packetTransmitted", "packetReceived"],
             "properties": {
                 "timestamp": {
                     "description": "When this measurement is performed.",
@@ -82,8 +82,8 @@
                     "description": "Client who performed this measurement.",
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
-                "host": {
-                    "description": "Host against which the latency is tested.",
+                "pingArgs": {
+                    "description": "Ping arguments used for this test.",
                     "type": "string"
                 },
                 "packetTransmitted": {
@@ -114,7 +114,7 @@
         },
         "throughput": {
             "description": "Throughput statistics between station and sniffer AP.",
-            "required": ["timestamp", "MAC", "url", "success"],
+            "required": ["timestamp", "MAC", "iperfArgs"],
             "properties": {
                 "timestamp": {
                     "description": "When this measurement is performed.",
@@ -125,24 +125,19 @@
                     "description": "Client who performed this measurement.",
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
-                "url": {
-                    "description": "Test file's url.",
+                "iperfArgs": {
+                    "description": "Iperf arguments used for test.",
                     "type": "string"
                 },
-                "success": {
-                    "description": "Whether download successed.",
-                    "type": "boolean"
+                "bandwidths": {
+                    "description": "Instaneous bandwidth",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
                 },
-                "fileSize": {
-                    "description": "File size (in bytes) that is downloaded.",
-                    "type": "integer"
-                },
-                "duration": {
-                    "description": "How long it takes (in seconds) to download the file.",
-                    "type": "integer"
-                },
-                "throughput": {
-                    "description": "Calculated throughput (in MBps).",
+                "overallBandwidth": {
+                    "description": "Overall bandwidth",
                     "type": "number"
                 }
             }

@@ -93,27 +93,11 @@ class AccessPoint(models.Model):
 
 
 
-  @classmethod
-  def handle_ap_scan(cls, ap_scan):
-    for scan_result in ap_scan:
-      ap, unused = AccessPoint.objects.get_or_create(BSSID=scan_result['MAC'])
-      for entry in scan_result['resultList']:
-        neighbor_ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['BSSID'])
-        neighbor_ap.SSID = entry['SSID']
-        neighbor_ap.channel = freq_to_channel(entry['frequency'])
-        neighbor_ap.client_num = entry.get('stationCount', None)
-        neighbor_ap.load = entry.get('bssLoad', None)
-        neighbor_ap.save()
-
-        ScanResult(myself_ap=ap, neighbor=neighbor_ap, signal=entry['RSSI'], timestamp=parser.parse(scan_result['timestamp'])).save()
-
-
-
 class Station(models.Model):
 
   MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
 
-  associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None)
+  associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None, on_delete=models.CASCADE)
 
   sniffer_station = models.BooleanField(default=False)
   phonelab_station = models.BooleanField(default=False)
@@ -132,22 +116,91 @@ class Station(models.Model):
   tx_bitrate = models.IntegerField(null=True, default=None)
   rx_bitrate = models.IntegerField(null=True, default=None)
 
+  neighbor_station = models.ForeignKey('Station', null=True, default=None, on_delete=models.CASCADE)
+
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+
+
+  @classmethod
+  def handle_neighbor_device(cls, nearby_devices):
+    for neighbor_info in nearby_devices:
+      try:
+        sta = Station.objects.get(MAC=neighbor_info['MAC'])
+      except:
+        logger.exception("Station %s not found." % (neighbor_info['MAC']))
+        continue
+
+      has_neighbor = False
+      for neighbor in neighbor_info['neighbors']:
+        if not neighbor['interested']:
+          continue
+        try:
+          sta.neighbor_station = Station.objects.get(MAC=neighbor['MAC'])
+          sta.save()
+          has_neighbor = True
+          break
+        except:
+          logger.exception("Station %s not found." % (neighbor['MAC']))
+          continue
+
+      if not has_neighbor:
+        sta.neighbor_station = None
+        sta.save()
+
+
+  @classmethod
+  def handle_phonelab_device(cls, reply):
+    for mac in reply['phonelabDevice']:
+      sta, unused = Station.objects.get_or_create(MAC=mac)
+      sta.phonelab_station = True
+      sta.save()
+
+
 
   def __repr__(self):
     d = {}
-    for attr in ['MAC', 'sniffer_station', 'phonelab_station']:
+    for attr in ['MAC', 'sniffer_station', 'phonelab_station', 'neighbor_station']:
       d[attr] = getattr(self, attr, None)
     return json.dumps(d)
 
 
+
 class ScanResult(models.Model):
-  myself_ap = models.ForeignKey(AccessPoint, related_name='myself_ap', null=True, default=None)
-  myself_station = models.ForeignKey(Station, related_name='myself_station', null=True, default=None)
-  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None)
+  myself_ap = models.ForeignKey(AccessPoint, related_name='myself_ap', null=True, default=None, on_delete=models.CASCADE)
+  myself_station = models.ForeignKey(Station, related_name='myself_station', null=True, default=None, on_delete=models.CASCADE)
+  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None, on_delete=models.CASCADE)
   signal = models.IntegerField(null=True, default=None)
   timestamp = models.DateTimeField(null=True, default=None)
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+
+  @classmethod
+  def handle_client_scan(cls, client_scan):
+    for scan_result in client_scan:
+      sta, unused = Station.objects.get_or_create(MAC=scan_result['MAC'])
+      for entry in scan_result['resultList']:
+        neighbor_ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['BSSID'])
+        neighbor_ap.SSID = entry['SSID']
+        neighbor_ap.channel = freq_to_channel(entry['frequency'])
+        neighbor_ap.client_num = entry.get('stationCount', None)
+        neighbor_ap.load = entry.get('bssLoad', None)
+        neighbor_ap.save()
+
+        ScanResult(myself_station=sta, neighbor=neighbor_ap, signal=entry['RSSI'], timestamp=parser.parse(scan_result['timestamp'])).save()
+
+  @classmethod
+  def handle_ap_scan(cls, ap_scan):
+    for scan_result in ap_scan:
+      ap, unused = AccessPoint.objects.get_or_create(BSSID=scan_result['MAC'])
+      for entry in scan_result['resultList']:
+        neighbor_ap, unused = AccessPoint.objects.get_or_create(BSSID=entry['BSSID'])
+        neighbor_ap.SSID = entry['SSID']
+        neighbor_ap.channel = freq_to_channel(entry['frequency'])
+        neighbor_ap.client_num = entry.get('stationCount', None)
+        neighbor_ap.load = entry.get('bssLoad', None)
+        neighbor_ap.save()
+
+        ScanResult(myself_ap=ap, neighbor=neighbor_ap, signal=entry['RSSI'], timestamp=parser.parse(scan_result['timestamp'])).save()
+
 
   def __repr__(self):
     d = {}
@@ -162,9 +215,9 @@ class ScanResult(models.Model):
 
 class Traffic(models.Model):
   timestamp = models.DateTimeField(null=True, default=None)
-  hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None)
-  for_devices = models.TextField(null=True, blank=True, default=None)
-  src = models.ForeignKey(Station, null=True, default=None)
+  hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None, on_delete=models.CASCADE)
+  for_device = models.ForeignKey(Station, related_name='for_device', null=True, default=None)
+  src = models.ForeignKey(Station, null=True, default=None, on_delete=models.CASCADE)
   begin = models.DateTimeField(null=True, default=None)
   end = models.DateTimeField(null=True, default=None)
   packets = models.BigIntegerField(null=True, default=None)
@@ -173,43 +226,102 @@ class Traffic(models.Model):
   channel = models.IntegerField(null=True, default=None)
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
+  @classmethod
+  def handle_client_traffic(cls, client_traffic):
+    for traffic in client_traffic:
+      origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
+      for_device = Station.objects.get(MAC=client_traffic['forDevice'])
+      for entry in traffic['traffics']:
+        src, created = Station.objects.get_or_create(MAC=entry['src'])
+        if created:
+          src.save()
 
-class Latency(models.Model):
-  station = models.ForeignKey(Station, null=True, default=None)
-  timestamp = models.DateTimeField(null=True, default=None)
-  host = models.CharField(max_length=128, null=True, default=None)
-  packet_transmitted = models.IntegerField(null=True, default=None)
-  packet_received = models.IntegerField(null=True, default=None)
-  min_rtt = models.FloatField(null=True, default=None)
-  max_rtt = models.FloatField(null=True, default=None)
-  avg_rtt = models.FloatField(null=True, default=None)
-  std_dev = models.FloatField(null=True, default=None)
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+        tfc = Traffic(hear_by=origin_sta, for_device=for_device, src=src)
+        tfc.begin = parser.parse(entry['begin'])
+        tfc.end = parser.parse(entry['end'])
+        tfc.timestamp = parser.parse(traffic['timestamp'])
+        tfc.channel = entry['channel']
+        tfc.packets = entry['packets']
+        tfc.retry_packets = entry['retryPackets']
+        tfc.avg_rssi = entry['avgRSSI']
+        tfc.save()
 
 
-class Throughput(models.Model):
-  station = models.ForeignKey(Station, null=True, default=None)
-  timestamp = models.DateTimeField(null=True, default=None)
-  url = models.CharField(max_length=512, null=True, default=None)
-  success = models.BooleanField(default=False)
-  file_size = models.IntegerField(null=True, default=None)
-  duration = models.IntegerField(null=True, default=None)
-  throughput = models.FloatField(null=True, default=None)
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
+class MeasurementHistory(models.Model):
+  begin1 = models.DateTimeField(null=True, default=None)
+  end1 = models.DateTimeField(null=True, default=None)
+
+  begin2 = models.DateTimeField(null=True, default=None)
+  end2 = models.DateTimeField(null=True, default=None)
 
 
 class AlgorithmHistory(models.Model):
-  algo = models.CharField(max_length=128)
-  begin = models.DateTimeField(null=True, default=None)
-  end = models.DateTimeField(null=True, default=None)
-  celery_task_id = models.CharField(max_length=512, null=True, default=None)
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+  timestamp = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
+  algo = models.CharField(max_length=128, null=True, default=None)
+  ap = models.ForeignKey(AccessPoint, null=True, default=None, on_delete=models.CASCADE)
+  channel_dwell_time = models.IntegerField(null=True, default=None)
+  channel_before = models.IntegerField(null=True, default=None)
+  channel_after = models.IntegerField(null=True, default=None)
+
+  def __repr__(self):
+    return json.dumps({'algorithm': self.algo, 'ap': self.ap.BSSID, 'before': self.channel_before, 'after': self.channel_after})
 
 
-class APConfigHistory(models.Model):
-  timestamp = models.DateTimeField()
-  ap = models.ForeignKey(AccessPoint)
-  channel = models.IntegerField(null=True, default=None)
-  txpower = models.IntegerField(null=True, default=None)
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+
+class LatencyResult(models.Model):
+
+  timestamp = models.DateTimeField(null=True, default=None)
+  station = models.ForeignKey(Station, on_delete=models.CASCADE)
+  pingArgs = models.CharField(max_length=128, null=True, default=None)
+  packet_transmitted = models.IntegerField(default=0)
+  packet_received = models.IntegerField(default=0)
+  min_rtt = models.FloatField(default=0)
+  max_rtt = models.FloatField(default=0)
+  avg_rtt = models.FloatField(default=0)
+  std_dev = models.FloatField(default=0)
+
+
+  @classmethod
+  def handle_client_latency(cls, client_latency):
+    for entry in client_latency:
+      r = LatencyResult()
+      r.timestamp = parser.parse(entry['timestamp'])
+      r.station = Station.objects.get(MAC=entry['MAC'])
+      r.pingArgs = entry['pingArgs']
+
+      for attr, key in [('packet_transmitted', 'packetTransmitted'), ('packet_received', 'packetReceived')]:
+        setattr(r, attr, int(entry[key]))
+
+      for attr, key in [('min_rtt', 'minRTT'), ('max_rtt', 'maxRTT'), ('avg_rtt', 'avgRTT'), ('std_dev', 'stdDev')]:
+        setattr(r, attr, float(entry[key]))
+
+      r.save()
+
+  def __repr__(self):
+    return json.dumps({'timestamp': str(self.timestamp), 'station': self.station.MAC, 'avg_rtt': self.avg_rtt})
+
+
+class ThroughputResult(models.Model):
+
+  timestamp = models.DateTimeField(null=True, default=None)
+  station = models.ForeignKey(Station, on_delete=models.CASCADE)
+  iperfArgs = models.CharField(max_length=128, null=True, default=None)
+  all_bw = models.TextField(null=True, default=None)
+  bw = models.FloatField(default=0)
+
+  @classmethod
+  def handle_client_throughput(cls, client_throughput):
+    for entry in client_throughput:
+      r = ThroughputResult()
+      r.timestamp = parser.parse(entry['timestamp'])
+      r.station = Station.objects.get(MAC=entry['MAC'])
+      r.iperfArgs = entry['iperfArgs']
+
+      r.all_bw = json.dumps(entry['bandwidths'])
+      r.bw = float(entry['overallBandwidth'])
+
+      r.save()
+
+  def __repr__(self):
+    return json.dumps({'timestamp': str(self.timestamp), 'station': self.station.MAC, 'bw': self.bw})
