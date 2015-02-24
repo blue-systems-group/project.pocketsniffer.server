@@ -8,7 +8,7 @@
         "action": {
             "description": "Action that is supposed to be performed by receiver.",
             "type": "string",
-            "enum": ["collect", "apConfig", "clientReassoc", "triggerAlgorithm"]
+            "enum": ["collect", "apConfig", "clientReassoc"]
         },
         "apStatus": {
             "description": "Whether to collect AP status, e.g., current channel, tx power, etc.",

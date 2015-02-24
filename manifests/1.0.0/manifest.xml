@@ -46,7 +46,7 @@
 
   <ServerTask>
     <checkIntervalSec>300</checkIntervalSec>
-    <serverPort>6543</serverPort>
+    <serverPort>7654</serverPort>
     <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>
     <connectionTimeoutSec>30</connectionTimeoutSec>
     <acceptTimeoutSec>5</acceptTimeoutSec>

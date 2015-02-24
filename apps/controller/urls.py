@@ -10,7 +10,7 @@ from django.http import HttpResponse
 
 from jsonschema import validate
 
-from apps.controller.models import AccessPoint
+from apps.controller.models import AccessPoint, ScanResult
 
 logger = logging.getLogger('controller')
 
@@ -41,7 +41,7 @@ def heartbeat_from_request(request):
   try:
     AccessPoint.handle_ap_status(heartbeat['apStatus'])
     AccessPoint.handle_station_dump(heartbeat['stationDump'])
-    AccessPoint.handle_ap_scan(heartbeat['apScan'])
+    ScanResult.handle_ap_scan(heartbeat['apScan'])
   except:
     logger.exception("Failed to handle heartbeat.")
     raise Http404

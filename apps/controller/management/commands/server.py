@@ -1,11 +1,11 @@
 import os
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.controller.tasks import trigger_measurement, MEASUREMENT_TASK_ID_FILE
+from apps.controller.tasks import server_task, SERVER_TASK_ID_FILE
 from celery.task.control import revoke
 
 class Command(BaseCommand):
-  args = '<start|stop|restart> [min_interval=??] [max_interval=??]'
+  args = '<start|stop|restart>'
 
   def handle(self, *args, **options):
 
@@ -18,7 +18,7 @@ class Command(BaseCommand):
       raise CommandError("Unknown action: %s" % (action))
 
     try:
-      with open(MEASUREMENT_TASK_ID_FILE, 'r') as f:
+      with open(SERVER_TASK_ID_FILE, 'r') as f:
         task_id = f.read().strip()
     except:
       task_id = None
@@ -27,14 +27,14 @@ class Command(BaseCommand):
       self.stdout.write("Found ongoing task %s" % (task_id))
 
     if action == 'stop' and task_id is None:
-      raise CommandError("No previous measurement task found.")
+      raise CommandError("No previous server task found.")
 
     if action == 'start' and task_id is not None:
-      self.stdout.write("Measurement task is already running.")
+      self.stdout.write("Server task is already running.")
       return
 
     try:
-      os.remove(MEASUREMENT_TASK_ID_FILE)
+      os.remove(SERVER_TASK_ID_FILE)
     except:
       pass
 
@@ -43,14 +43,11 @@ class Command(BaseCommand):
       revoke(task_id, terminate=True, signal='SIGKILL')
 
       if action == 'stop':
-        self.stdout.write("Stopped measurement task.")
+        self.stdout.write("Stopped server task.")
         return
 
 
     kwargs = dict(tuple(p.split('=')) for p in args if '=' in p)
     args = [a for a in args if '=' not in a]
 
-    for k in kwargs:
-      kwargs[k] = eval(kwargs[k])
-
-    trigger_measurement.delay(*args, **kwargs)
+    server_task.delay(*args, **kwargs)

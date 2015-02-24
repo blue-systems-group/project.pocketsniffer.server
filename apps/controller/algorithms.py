@@ -5,7 +5,7 @@ import random
 from django.conf import settings
 
 from apps.controller.models import AccessPoint, ScanResult, Station, Traffic, AlgorithmHistory
-from apps.controller.tasks import Request
+import measure
 
 logger = logging.getLogger('controller')
 
@@ -14,19 +14,18 @@ logger = logging.getLogger('controller')
 
 class Algorithm(object):
 
-
   def get_new_channel(self, ap):
     pass
 
 
   def run(self, **kwargs):
-    for k, v in kwargs:
+    for k, v in kwargs.items():
       setattr(self, k, v)
 
     for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
       new_channel = self.get_new_channel(ap)
       if new_channel != ap.channel:
-        Request({'action': 'apConfig', 'band2g': {'channel': new_channel}}).send(ap.BSSID)
+        measure.Request({'action': 'apConfig', 'band2g': {'channel': new_channel}}).send(ap.BSSID)
 
       history = AlgorithmHistory(algo=self.__class__.__name__, ap=ap)
       history.channel_dwell_time = kwargs.get('channel_dwell_time', None)

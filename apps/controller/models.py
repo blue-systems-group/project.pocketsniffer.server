@@ -254,6 +254,10 @@ class MeasurementHistory(models.Model):
   begin2 = models.DateTimeField(null=True, default=None)
   end2 = models.DateTimeField(null=True, default=None)
 
+  def __repr__(self):
+    return json.dumps({'begin1': str(self.begin1), 'end1': str(self.end1), 'begin2': str(self.begin2), 'end2': str(self.end2)})
+
+
 
 class AlgorithmHistory(models.Model):
   timestamp = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
@@ -324,3 +328,10 @@ class ThroughputResult(models.Model):
 
   def __repr__(self):
     return json.dumps({'timestamp': str(self.timestamp), 'station': self.station.MAC, 'bw': self.bw})
+
+
+
+def cleanup_all():
+  for m in [AccessPoint, Station, ScanResult, ThroughputResult, LatencyResult, Traffic, MeasurementHistory, AlgorithmHistory]:
+    print "Deleting %s" % (str(m))
+    m.objects.all().delete()
