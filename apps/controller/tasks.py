@@ -15,10 +15,10 @@ from django.conf import settings
 from celery import shared_task
 
 
-from apps.controller.models import AlgorithmHistory, Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
-from apps.controller.algorithms import Algorithm
+from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
+from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware
 
-from lib.common.utils import recv_all, freq_to_channel, get_iface_addr
+from lib.common.utils import recv_all
 
 logger = logging.getLogger('controller')
 
@@ -39,6 +39,10 @@ MEASUREMENTS = {
     }
 
 ALGORITHMS = [
+    NoAssignment(),
+    RandomAssignment(),
+    WeightedGraphColor(),
+    TrafficAware(),
     ]
 
 
