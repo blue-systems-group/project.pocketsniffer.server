@@ -39,6 +39,8 @@ SHELL_PLUS_PRE_IMPORTS = (
     'json',
     )
 
+AP_HEARTBEAT_INTERVAL = 300
+
 
 
 # Quick-start development settings - unsuitable for production

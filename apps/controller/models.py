@@ -30,8 +30,9 @@ class AccessPoint(models.Model):
   tx_power = models.IntegerField(null=True, default=None)
   noise = models.IntegerField(null=True, default=None)
   enabled = models.BooleanField(default=True)
-  last_status_update = models.DateTimeField(null=True, default=None)
   neighbor_aps = models.ManyToManyField('self', through='ScanResult', through_fields=('myself_ap', 'neighbor'), symmetrical=False)
+
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
   def __repr__(self):
     d = {}
@@ -58,7 +59,6 @@ class AccessPoint(models.Model):
         for attr in ['BSSID', 'SSID', 'channel', 'noise', 'enabled']:
           setattr(ap, attr, config[attr])
         ap.tx_power = config['txPower']
-        ap.last_status_update = parser.parse(ap_status['timestamp'])
         ap.save()
 
     for band, channels in [('band2g', range(1, 12)), ('band5g', range(36, 166))]:
@@ -66,7 +66,6 @@ class AccessPoint(models.Model):
         try:
           ap = AccessPoint.objects.filter(MAC=['MAC'], enabled=True, channel__in=channels)[0]
           ap.enabled = False
-          ap.last_status_update = parser.parse(ap_status['timestamp'])
           ap.save()
         except:
           pass

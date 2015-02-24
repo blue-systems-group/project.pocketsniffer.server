@@ -8,7 +8,7 @@ import json
 import threading
 import random
 import time
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 from jsonschema import validate
 from django.conf import settings
 
@@ -199,6 +199,12 @@ def do_measurement():
   measurement_history.save()
 
 
+def ap_clean_up():
+  for ap in AccessPoint.objects.filter(sniffer_ap=True, last_updated__lte=dt.now()-timedelta(seconds=2*settings.AP_HEARBEAT_INTERVAL)):
+    logger.debug("AP %s is dead, delete it." % (ap.BSSID))
+    ap.delete()
+
+
 @shared_task(bind=True)
 def trigger_measurement(self, *args, **kwargs):
   logger.debug("Staring measurements, args = %s, kwargs = %s." % (str(args), str(kwargs)))
@@ -212,6 +218,7 @@ def trigger_measurement(self, *args, **kwargs):
   logger.debug("Interval range [%d, %d]" % (min_interval, max_interval))
 
   while True:
+    ap_clean_up()
     do_measurement()
 
     interval = random.randint(min_interval, max_interval)
