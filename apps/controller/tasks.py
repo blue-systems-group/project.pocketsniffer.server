@@ -14,7 +14,7 @@ from celery import shared_task
 
 from apps.controller.measure import ap_clean_up, do_measurement, MEASUREMENT_DURATION
 from apps.controller.models import Traffic
-from libs.common.utils import get_iface_addr, recv_all
+from libs.common.util import get_iface_addr, recv_all
 
 logger = logging.getLogger('controller')
 

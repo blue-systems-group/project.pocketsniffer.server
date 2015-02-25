@@ -12,7 +12,7 @@ from jsonschema import validate
 
 from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
 from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware
-from libs.common.utils import recv_all
+from libs.common.util import recv_all
 
 
 logger = logging.getLogger('controller')
