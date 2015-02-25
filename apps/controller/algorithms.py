@@ -83,6 +83,7 @@ class WeightedGraphColor(Algorithm):
 class TrafficAware(Algorithm):
 
   def get_new_channel(self, ap):
-    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station_isnull=True).all()
-    H = dict((c, sum([tfc.packets for tfc in Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c)])) for c in settings.BAND2G_CHANNELS)
+    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
+    H = dict((c, sum([tfc.packets for tfc in Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c).exclude(src__in=active_stas)])) for c in settings.BAND2G_CHANNELS)
+    logger.debug("[%s] H index: %s" % (ap.BSSID, str(H)))
     return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])

@@ -13,7 +13,7 @@ from celery import shared_task
 
 
 from apps.controller.measure import ap_clean_up, do_measurement, MEASUREMENT_DURATION
-from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult
+from apps.controller.models import Traffic
 from lib.common.utils import get_iface_addr, recv_all
 
 logger = logging.getLogger('controller')
@@ -22,26 +22,13 @@ MEASUREMENT_TASK_ID_FILE = '/tmp/measurement_task_id'
 SERVER_TASK_ID_FILE = '/tmp/server_task_id'
 
 HANDLER_MAPPING = {
-    'apStatus': AccessPoint.handle_ap_status,
-    'stationDump': AccessPoint.handle_station_dump,
-
-    'phonelabDevice': Station.handle_phonelab_device,
-    'nearbyDevices': Station.handle_neighbor_device,
-
-    'apScan': ScanResult.handle_ap_scan,
-    'clientScan': ScanResult.handle_client_scan,
-
     'clientTraffic': Traffic.handle_client_traffic,
-    'clientLatency': LatencyResult.handle_client_latency,
-    'clientThroughput': ThroughputResult.handle_client_throughput,
     }
 
 SCHEMA_DIR = os.path.join(os.path.dirname(__file__), 'static', 'schemas')
 with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
   REPLY_SCHEMA = json.loads(f.read())
  
-
-
 
 @shared_task(bind=True)
 def trigger_measurement(self, *args, **kwargs):
@@ -59,7 +46,7 @@ def trigger_measurement(self, *args, **kwargs):
     ap_clean_up()
     do_measurement()
 
-    if kwargs.get('oneshort', False):
+    if kwargs.get('oneshot', False):
       break
 
     interval = random.randint(min_interval, max_interval)

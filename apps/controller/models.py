@@ -229,7 +229,7 @@ class Traffic(models.Model):
   def handle_client_traffic(cls, client_traffic):
     for traffic in client_traffic:
       origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
-      for_device = Station.objects.get(MAC=client_traffic['forDevice'])
+      for_device = Station.objects.get(MAC=traffic['forDevice'])
       for entry in traffic['traffics']:
         src, created = Station.objects.get_or_create(MAC=entry['src'])
         if created:
@@ -254,13 +254,16 @@ class MeasurementHistory(models.Model):
   begin2 = models.DateTimeField(null=True, default=None)
   end2 = models.DateTimeField(null=True, default=None)
 
+  measurement = models.CharField(max_length=128, null=True, default=None)
+  algo = models.CharField(max_length=128, null=True, default=None)
+
   def __repr__(self):
     return json.dumps({'begin1': str(self.begin1), 'end1': str(self.end1), 'begin2': str(self.begin2), 'end2': str(self.end2)})
 
 
 
 class AlgorithmHistory(models.Model):
-  timestamp = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
   algo = models.CharField(max_length=128, null=True, default=None)
   ap = models.ForeignKey(AccessPoint, null=True, default=None, on_delete=models.CASCADE)
   channel_dwell_time = models.IntegerField(null=True, default=None)
@@ -283,6 +286,8 @@ class LatencyResult(models.Model):
   max_rtt = models.FloatField(default=0)
   avg_rtt = models.FloatField(default=0)
   std_dev = models.FloatField(default=0)
+
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
 
 
   @classmethod
@@ -312,6 +317,8 @@ class ThroughputResult(models.Model):
   iperfArgs = models.CharField(max_length=128, null=True, default=None)
   all_bw = models.TextField(null=True, default=None)
   bw = models.FloatField(default=0)
+
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
 
   @classmethod
   def handle_client_throughput(cls, client_throughput):

@@ -1,4 +1,5 @@
 import os
+import threading
 import logging
 import time
 import socket
@@ -6,10 +7,12 @@ import json
 import random
 from datetime import datetime as dt, timedelta
 from django.conf import settings
+from jsonschema import validate
 
 
-from apps.controller.models import Station, AccessPoint, MeasurementHistory
+from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
 from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware
+from lib.common.utils import recv_all
 
 
 logger = logging.getLogger('controller')
@@ -22,9 +25,9 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 
 MEASUREMENT_DURATION = 30
 MEASUREMENTS = {
-    "Latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
-    "TCP Throughput": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    "UDP Throughput": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 50M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
+    "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     }
 
 
@@ -36,14 +39,63 @@ ALGORITHMS = [
     ]
 
 
-
 class Request(dict):
 
-  def send(self, *aps):
+  HANDLER_MAPPING = {
+      'apStatus': AccessPoint.handle_ap_status,
+      'stationDump': AccessPoint.handle_station_dump,
+
+      'phonelabDevice': Station.handle_phonelab_device,
+      'nearbyDevices': Station.handle_neighbor_device,
+
+      'apScan': ScanResult.handle_ap_scan,
+      'clientScan': ScanResult.handle_client_scan,
+
+      'clientTraffic': Traffic.handle_client_traffic,
+      'clientLatency': LatencyResult.handle_client_latency,
+      'clientThroughput': ThroughputResult.handle_client_throughput,
+      }
+
+
+  def handle_reply(self, conn):
+    try:
+      content = recv_all(conn)
+      reply = json.loads(content)
+    except:
+      logger.exception("Failed to parse reply: %s" % (str(content)))
+      return
+
+    try:
+      validate(reply, REPLY_SCHEMA)
+    except:
+      logger.exception("Failed to validate reply.")
+      logger.debug(json.dumps(reply))
+      return
+
+    logger.debug("Got reply: %s" % (json.dumps(reply)))
+
+    for t, handler in Request.HANDLER_MAPPING.items():
+      try:
+        if reply['request'].get(t, False):
+          handler(reply[t])
+      except:
+        logger.exception("Failed to handle %s" % (t))
+
+
+  def send(self, *aps, **kwargs):
     sniffer_aps = AccessPoint.objects.filter(sniffer_ap=True, BSSID__in=aps, channel__in=settings.BAND2G_CHANNELS).exclude(IP=None).distinct('IP')
+
+    if self['action'] == 'apConfig' or self['action'] == 'clientReassoc':
+      block = False
+    elif self['action'] == 'collect' and self.get('clientTraffic', False):
+      block = False
+    else:
+      block = True
 
     msg = json.dumps(self)
     logger.debug("Request msg: %s" % (msg))
+
+    handler_threads = []
 
     for ap in sniffer_aps:
       try:
@@ -51,29 +103,23 @@ class Request(dict):
         conn = socket.create_connection((ap.IP, settings.PUBLIC_TCP_PORT))
         conn.sendall(msg)
         conn.shutdown(socket.SHUT_WR)
-        conn.close()
+        if block:
+          t = threading.Thread(target=self.handle_reply, args=(conn,))
+          t.start()
+          handler_threads.append(t)
+        else:
+          conn.close()
       except:
         logger.exception("Failed to send msg to %s" % (ap))
 
-    delay = 0
-
-    if self['action'] == 'apConfig':
-      delay = 5
-    elif self['action'] == 'clientReassoc':
-      delay = 10
-    elif self['action'] == 'collect':
-      if any([self.get(k, False) for k in ['phonelabDevice', 'clientScan', 'nearbyDevice']]):
-        delay = 10
-      elif any([self.get(k, False) for k in ['apStatus', 'apScan', 'stationDump']]):
-        delay = 5
-
-    if delay > 0:
-      time.sleep(delay)
+    for t in handler_threads:
+      t.join()
 
 
-  def broadcast(self):
+
+  def broadcast(self, **kwargs):
     aps = AccessPoint.objects.filter(sniffer_ap=True).values_list('BSSID', flat=True)
-    self.send(*aps)
+    self.send(*aps, **kwargs)
 
 
 
@@ -107,10 +153,22 @@ def check_association():
 
 def do_measurement():
   logger.debug("===================== MEASUREMENT START ===================== ")
+  measurement_history = MeasurementHistory()
 
+  algo = random.choice(ALGORITHMS)
+  logger.debug("Choosed algorithm: %s" % (algo.__class__.__name__))
+  measurement_history.algo = algo.__class__.__name__
+
+  key = random.choice(MEASUREMENTS.keys())
+  logger.debug("Choosed measurment: %s" % (key))
+  measurement_history.measure = key
+
+
+  logger.debug("Randomly assigning AP channels.")
   for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
     Request({'action': 'apConfig', 'band2g': {'channel': random.choice(settings.BAND2G_CHANNELS)}}).send(ap.BSSID)
 
+  logger.debug("Check passive client association.")
   active_stas, passive_stas = check_association()
 
   if len(active_stas) == 0:
@@ -120,28 +178,31 @@ def do_measurement():
 
   channel_dwell_time = random.choice([1, 2, 5, 10])
 
-  key = random.choice(MEASUREMENTS.keys())
   measure_request = Request(MEASUREMENTS[key])
   measure_request['clients'] = active_stas
 
-  measurement_history = MeasurementHistory()
   measurement_history.begin1 = dt.now()
 
-  Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': channel_dwell_time, 'clients': active_stas}).broadcast()
-  measure_request.broadcast()
-  time.sleep(MEASUREMENT_DURATION+10)
+  if isinstance(algo, TrafficAware):
+    Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': channel_dwell_time, 'clients': active_stas}).broadcast()
 
-  Request({'action': 'collect', 'apScan': True}).broadcast()
-  Request({'action': 'collect', 'clientScan': True, 'clients': active_stas}).broadcast()
+  measure_request.broadcast()
+
+  Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).broadcast()
+
+  if isinstance(algo, TrafficAware):
+    for active_sta in active_stas:
+      logger.debug("Waiting for traffic statistics for %s." % (active_sta))
+      while not Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC=active_sta).exists():
+        time.sleep(1)
 
   measurement_history.end1 = dt.now()
 
-  random.choice(ALGORITHMS).run(begin=measurement_history.begin1, end=measurement_history.end1, channel_dwell_time=channel_dwell_time)
+  algo.run(begin=measurement_history.begin1, end=measurement_history.end1, channel_dwell_time=channel_dwell_time)
 
   measurement_history.begin2 = dt.now()
 
   measure_request.broadcast()
-  time.sleep(MEASUREMENT_DURATION+10)
 
   measurement_history.end2 = dt.now()
 
