@@ -32,9 +32,9 @@ MEASUREMENTS = {
 
 
 ALGORITHMS = [
-    NoAssignment(),
-    RandomAssignment(),
-    WeightedGraphColor(),
+    # NoAssignment(),
+    # RandomAssignment(),
+    # WeightedGraphColor(),
     TrafficAware(),
     ]
 
@@ -161,7 +161,7 @@ def do_measurement():
 
   key = random.choice(MEASUREMENTS.keys())
   logger.debug("Choosed measurment: %s" % (key))
-  measurement_history.measure = key
+  measurement_history.measurement = key
 
 
   logger.debug("Randomly assigning AP channels.")
@@ -176,7 +176,7 @@ def do_measurement():
     logger.debug("===================== MEASUREMENT END    ===================== ")
     return
 
-  channel_dwell_time = random.choice([1, 2, 5, 10])
+  channel_dwell_time = random.choice([1, 2, 5])
 
   measure_request = Request(MEASUREMENTS[key])
   measure_request['clients'] = active_stas
@@ -188,12 +188,16 @@ def do_measurement():
 
   measure_request.broadcast()
 
-  Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).broadcast()
+  if isinstance(algo, WeightedGraphColor):
+    Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).broadcast()
 
   if isinstance(algo, TrafficAware):
     for active_sta in active_stas:
       logger.debug("Waiting for traffic statistics for %s." % (active_sta))
-      while not Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC=active_sta).exists():
+      # for unused in range(1, 20):
+      while True:
+        if Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC=active_sta).exists():
+          break
         time.sleep(1)
 
   measurement_history.end1 = dt.now()

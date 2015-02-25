@@ -258,7 +258,7 @@ class MeasurementHistory(models.Model):
   algo = models.CharField(max_length=128, null=True, default=None)
 
   def __repr__(self):
-    return json.dumps({'begin1': str(self.begin1), 'end1': str(self.end1), 'begin2': str(self.begin2), 'end2': str(self.end2)})
+    return json.dumps({'begin': str(self.begin1), 'end': str(self.end2), 'algo': str(self.algo), 'measurement': str(self.measurement)})
 
 
 

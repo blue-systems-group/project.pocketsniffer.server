@@ -25,7 +25,10 @@ class Algorithm(object):
     for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
       new_channel = self.get_new_channel(ap)
       if new_channel != ap.channel:
+        logger.debug("Assign AP %s with new channel %d (was %d)" % (ap.BSSID, new_channel, ap.channel))
         measure.Request({'action': 'apConfig', 'band2g': {'channel': new_channel}}).send(ap.BSSID)
+      else:
+        logger.debug("AP %s stays on channel %d" % (ap.BSSID, ap.channel))
 
       history = AlgorithmHistory(algo=self.__class__.__name__, ap=ap)
       history.channel_dwell_time = kwargs.get('channel_dwell_time', None)
