@@ -8,7 +8,7 @@ from django.conf import settings
 from datetime import datetime as dt
 
 
-from lib.common.utils import freq_to_channel
+from libs.common.utils import freq_to_channel
 
 
 MAX_SSID_LENGTH = 64
