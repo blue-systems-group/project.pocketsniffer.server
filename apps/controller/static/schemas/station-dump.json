@@ -31,7 +31,7 @@
         "station": {
             "description": "A station that associated with this AP. Information is obtained using iw station dump.",
             "type": "object",
-            "required": ["MAC", "IP"],
+            "required": ["MAC"],
             "properties": {
                 "MAC": {
                     "description": "Station MAC address.",

@@ -78,17 +78,18 @@ class AccessPoint(models.Model):
         logger.warn("Access point %s at %s does not exist." % (station_dump['MAC'], band))
         continue
       ap = AccessPoint.objects.get(MAC=station_dump['MAC'], channel__in=channels)
-      now = dt.now()
       for station in station_dump[band]:
         sta, unused = Station.objects.get_or_create(MAC=station['MAC'])
         for attr, key in [('IP', 'IP'), ('inactive_time', 'inactiveTime'), ('rx_bytes', 'rxBytes'), ('rx_packets', 'rxPackets'),\
             ('tx_bytes', 'txBytes'), ('tx_packets', 'txPackets'), ('tx_fails', 'txFailures'), ('tx_retries', 'txRetries'),\
             ('signal_avg', 'avgSignal'), ('tx_bitrate', 'txBitrate'), ('rx_bitrate', 'rxBitrate')]:
-          setattr(sta, attr, station.get(key, None))
+          try:
+            setattr(sta, attr, station.get(key, None))
+          except:
+            pass
         sta.sniffer_station = True
         sta.associate_with = ap
         sta.save()
-      Station.objects.filter(associate_with=ap, last_updated__lt=now).delete()
 
 
 

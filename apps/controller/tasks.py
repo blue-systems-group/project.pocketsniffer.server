@@ -44,7 +44,7 @@ def trigger_measurement(self, *args, **kwargs):
 
   while True:
     ap_clean_up()
-    do_measurement()
+    do_measurement(**kwargs)
 
     if kwargs.get('oneshot', False):
       break

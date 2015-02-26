@@ -11,7 +11,7 @@ from jsonschema import validate
 
 
 from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
-from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware
+from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware, TerminalCount
 from libs.common.util import recv_all
 
 
@@ -23,7 +23,7 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
  
 
 
-MEASUREMENT_DURATION = 30
+MEASUREMENT_DURATION = 20
 MEASUREMENTS = {
     "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
     "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
@@ -32,9 +32,10 @@ MEASUREMENTS = {
 
 
 ALGORITHMS = [
-    # NoAssignment(),
-    # RandomAssignment(),
-    # WeightedGraphColor(),
+    NoAssignment(),
+    RandomAssignment(),
+    WeightedGraphColor(),
+    TerminalCount(),
     TrafficAware(),
     ]
 
@@ -115,90 +116,116 @@ class Request(dict):
     for t in handler_threads:
       t.join()
 
-
-
   def broadcast(self, **kwargs):
     aps = AccessPoint.objects.filter(sniffer_ap=True).values_list('BSSID', flat=True)
     self.send(*aps, **kwargs)
 
 
 
-def check_association():
+def get_stations(need_sniffer=False):
+  now = dt.now()
+
+  Request({'action': 'collect', 'apStatus': True}).broadcast()
   Request({'action': 'collect', 'stationDump': True}).broadcast()
   Request({'action': 'collect', 'nearbyDevices': True}).broadcast()
 
-  active_stas = []
-  passive_stas = []
-  for active_sta in Station.objects.filter(sniffer_station=True, neighbor_station__isnull=True):
-    ap = active_sta.associate_with
+  stations = dict()
 
-    try:
-      passive_sta = Station.objects.filter(neighbor_station=active_sta)[0]
-    except:
-      logger.exception("No passive device for station %s" % (active_sta.MAC))
-      continue
-    
-    if passive_sta.associate_with == ap:
-      logger.debug("Passive device (%s) for active device (%s) associate with same AP (%s)" % (passive_sta.MAC, active_sta.MAC, ap.BSSID))
-    else:
-      logger.debug("Force passive device (%s) associate with AP (%s)" % (passive_sta.MAC, ap.BSSID))
-      Request({'action': 'clientReassoc', 'clients': [passive_sta.MAC], 'newBSSID': ap.BSSID}).send(passive_sta.associate_with.BSSID)
+  if not need_sniffer:
+    for sta in Station.objects.filter(sniffer_station=True, last_updated__gte=now, associate_with__isnull=False):
+      BSSID = sta.associate_with.BSSID
+      if BSSID not in stations:
+        stations[BSSID] = []
+      stations[BSSID].append(sta.MAC)
+  else:
+    for active_sta in Station.objects.filter(sniffer_station=True, neighbor_station__isnull=True, last_updated__gte=now, associate_with__isnull=False):
+      try:
+        passive_sta = Station.objects.filter(neighbor_station=active_sta, last_updated__gte=now)[0]
+      except:
+        logger.debug("No passive device for station %s" % (active_sta.MAC))
+        continue
+      BSSID = active_sta.associate_with.BSSID
+      if BSSID not in stations:
+        stations[BSSID] = []
+      stations[BSSID].append((active_sta.MAC, passive_sta.MAC))
 
-    active_stas.append(active_sta.MAC)
-    passive_stas.append(passive_sta.MAC)
-
-  logger.debug("%d active stations (with passive device) found." % (len(active_stas)))
-  return active_stas, passive_stas
+  logger.debug("Stations found: %s" % (str(stations)))
+  return stations
 
 
-def do_measurement():
+
+def do_measurement(**kwargs):
   logger.debug("===================== MEASUREMENT START ===================== ")
   measurement_history = MeasurementHistory()
 
-  algo = random.choice(ALGORITHMS)
+  algo = kwargs.get('algo', random.choice(ALGORITHMS))
   logger.debug("Choosed algorithm: %s" % (algo.__class__.__name__))
   measurement_history.algo = algo.__class__.__name__
 
-  key = random.choice(MEASUREMENTS.keys())
+  key = kwargs.get('measure', random.choice(MEASUREMENTS.keys()))
   logger.debug("Choosed measurment: %s" % (key))
   measurement_history.measurement = key
 
+  client_num =  kwargs.get('client_num', 1)
+  logger.debug("Client number: %d" % (client_num))
 
   logger.debug("Randomly assigning AP channels.")
   for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
     Request({'action': 'apConfig', 'band2g': {'channel': random.choice(settings.BAND2G_CHANNELS)}}).send(ap.BSSID)
 
-  logger.debug("Check passive client association.")
-  active_stas, passive_stas = check_association()
+  logger.debug("Getting stations.")
+  stations = get_stations(need_sniffer=algo.need_traffic)
+
+  active_stas, passive_stas = [], []
+
+  if algo.need_traffic:
+    for ap, sta_pairs in stations.items():
+      if len(sta_pairs) < client_num:
+        logger.debug("Not enough station pairs found for AP %s" % (ap))
+        continue
+      sta_pairs = random.sample(sta_pairs, client_num)
+      active_stas.extend([t[0] for t in sta_pairs])
+      passive_stas.extend([t[1] for t in sta_pairs])
+  else:
+    for ap, stas in stations.items():
+      if len(stas) < client_num:
+        logger.debug("Not enough stations found for AP %s" % (ap))
+        continue
+      stas = random.sample(stas, client_num)
+      active_stas.extend(stas)
 
   if len(active_stas) == 0:
     logger.debug("No available active clients found.")
+    # reboot_clients()
     logger.debug("===================== MEASUREMENT END    ===================== ")
     return
 
-  channel_dwell_time = random.choice([1, 2, 5])
+  channel_dwell_time = random.choice([5])
 
   measure_request = Request(MEASUREMENTS[key])
   measure_request['clients'] = active_stas
 
   measurement_history.begin1 = dt.now()
 
-  if isinstance(algo, TrafficAware):
+  if algo.need_traffic:
     Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': channel_dwell_time, 'clients': active_stas}).broadcast()
 
   measure_request.broadcast()
 
-  if isinstance(algo, WeightedGraphColor):
+  if algo.need_scan_result:
     Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).broadcast()
 
-  if isinstance(algo, TrafficAware):
+  if algo.need_traffic:
     for active_sta in active_stas:
       logger.debug("Waiting for traffic statistics for %s." % (active_sta))
-      # for unused in range(1, 20):
-      while True:
+      for unused in range(0, 20):
         if Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC=active_sta).exists():
           break
         time.sleep(1)
+    if not Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC__in=active_stas).exists():
+      logger.debug("No traffic statistics for any active device.")
+      logger.debug("===================== MEASUREMENT END    ===================== ")
+      return
 
   measurement_history.end1 = dt.now()
 
@@ -218,3 +245,8 @@ def ap_clean_up():
   for ap in AccessPoint.objects.filter(sniffer_ap=True, last_updated__lte=dt.now()-timedelta(seconds=2*settings.AP_HEARTBEAT_INTERVAL)):
     logger.debug("AP %s is dead, delete it." % (ap.BSSID))
     ap.delete()
+
+
+def reboot_clients():
+  Request({'action': 'clientReboot', 'clients': list(Station.objects.filter(sniffer_station=True).values_list('MAC', flat=True))}).broadcast()
+  time.sleep(30)

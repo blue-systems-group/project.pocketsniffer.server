@@ -44,6 +44,14 @@ class NoAssignment(Algorithm):
   def get_new_channel(self, ap):
     return ap.channel
 
+  @property
+  def need_scan_result(self):
+    return False
+
+  @property
+  def need_traffic(self):
+    return False
+
 
 
 class RandomAssignment(Algorithm):
@@ -52,8 +60,29 @@ class RandomAssignment(Algorithm):
     return random.choice(settings.BAND2G_CHANNELS)
 
 
+  @property
+  def need_scan_result(self):
+    return False
+
+  @property
+  def need_traffic(self):
+    return False
+
+
+
+
 
 class WeightedGraphColor(Algorithm):
+
+  @property
+  def need_scan_result(self):
+    return True
+
+  @property
+  def need_traffic(self):
+    return False
+
+
 
   def get_new_channel(self, ap):
     H = dict((c, max([self.Ifactor(ap, neighbor)*self.weight(ap, neighbor) for neighbor in ap.neighbor_aps.all()])) for c in settings.BAND2G_CHANNELS)
@@ -83,7 +112,32 @@ class WeightedGraphColor(Algorithm):
       return float(overhear_num) / client_num
 
 
+class TerminalCount(Algorithm):
+
+  @property
+  def need_scan_result(self):
+    return False
+
+  @property
+  def need_traffic(self):
+    return True
+
+  def get_new_channel(self, ap):
+    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
+    H = dict((c, len(Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c).exclude(src__in=active_stas).values_list('src', flat=True))) for c in settings.BAND2G_CHANNELS)
+    logger.debug("H index: %s" % (str(H)))
+    return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+
+
 class TrafficAware(Algorithm):
+
+  @property
+  def need_scan_result(self):
+    return False
+
+  @property
+  def need_traffic(self):
+    return True
 
   def get_new_channel(self, ap):
     active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
