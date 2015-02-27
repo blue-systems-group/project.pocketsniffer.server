@@ -11,7 +11,7 @@ from jsonschema import validate
 
 
 from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
-from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware, TerminalCount
+from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAwareMinSum, TrafficAwareMinMax, TerminalCount
 from libs.common.util import recv_all
 
 
@@ -36,7 +36,8 @@ ALGORITHMS = [
     RandomAssignment(),
     WeightedGraphColor(),
     TerminalCount(),
-    TrafficAware(),
+    TrafficAwareMinSum(),
+    TrafficAwareMinMax(),
     ]
 
 
@@ -86,7 +87,7 @@ class Request(dict):
   def send(self, *aps, **kwargs):
     sniffer_aps = AccessPoint.objects.filter(sniffer_ap=True, BSSID__in=aps, channel__in=settings.BAND2G_CHANNELS).exclude(IP=None).distinct('IP')
 
-    if self['action'] == 'apConfig' or self['action'] == 'clientReassoc':
+    if self['action'] in ['apConfig', 'clientReassoc', 'clientReboot']:
       block = False
     elif self['action'] == 'collect' and self.get('clientTraffic', False):
       block = False
@@ -166,7 +167,7 @@ def do_measurement(**kwargs):
   logger.debug("Choosed measurment: %s" % (key))
   measurement_history.measurement = key
 
-  client_num =  kwargs.get('client_num', 1)
+  client_num =  kwargs.get('client_num', None)
   logger.debug("Client number: %d" % (client_num))
 
   logger.debug("Randomly assigning AP channels.")
@@ -196,7 +197,7 @@ def do_measurement(**kwargs):
 
   if len(active_stas) == 0:
     logger.debug("No available active clients found.")
-    # reboot_clients()
+    reboot_clients()
     logger.debug("===================== MEASUREMENT END    ===================== ")
     return
 
@@ -241,12 +242,6 @@ def do_measurement(**kwargs):
   logger.debug("===================== MEASUREMENT END    ===================== ")
 
 
-def ap_clean_up():
-  for ap in AccessPoint.objects.filter(sniffer_ap=True, last_updated__lte=dt.now()-timedelta(seconds=2*settings.AP_HEARTBEAT_INTERVAL)):
-    logger.debug("AP %s is dead, delete it." % (ap.BSSID))
-    ap.delete()
-
-
 def reboot_clients():
   Request({'action': 'clientReboot', 'clients': list(Station.objects.filter(sniffer_station=True).values_list('MAC', flat=True))}).broadcast()
-  time.sleep(30)
+  time.sleep(60)

@@ -5,7 +5,6 @@ from dateutil import parser
 
 from django.db import models
 from django.conf import settings
-from datetime import datetime as dt
 
 
 from libs.common.util import freq_to_channel
@@ -97,7 +96,7 @@ class Station(models.Model):
 
   MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
 
-  associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None, on_delete=models.CASCADE)
+  associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None, on_delete=models.SET_NULL)
 
   sniffer_station = models.BooleanField(default=False)
   phonelab_station = models.BooleanField(default=False)
@@ -116,7 +115,7 @@ class Station(models.Model):
   tx_bitrate = models.IntegerField(null=True, default=None)
   rx_bitrate = models.IntegerField(null=True, default=None)
 
-  neighbor_station = models.ForeignKey('Station', null=True, default=None, on_delete=models.CASCADE)
+  neighbor_station = models.ForeignKey('Station', null=True, default=None, on_delete=models.SET_NULL)
 
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
@@ -166,9 +165,9 @@ class Station(models.Model):
 
 
 class ScanResult(models.Model):
-  myself_ap = models.ForeignKey(AccessPoint, related_name='myself_ap', null=True, default=None, on_delete=models.CASCADE)
-  myself_station = models.ForeignKey(Station, related_name='myself_station', null=True, default=None, on_delete=models.CASCADE)
-  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None, on_delete=models.CASCADE)
+  myself_ap = models.ForeignKey(AccessPoint, related_name='myself_ap', null=True, default=None, on_delete=models.SET_NULL)
+  myself_station = models.ForeignKey(Station, related_name='myself_station', null=True, default=None, on_delete=models.SET_NULL)
+  neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None, on_delete=models.SET_NULL)
   signal = models.IntegerField(null=True, default=None)
   timestamp = models.DateTimeField(null=True, default=None)
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
@@ -215,9 +214,9 @@ class ScanResult(models.Model):
 
 class Traffic(models.Model):
   timestamp = models.DateTimeField(null=True, default=None)
-  hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None, on_delete=models.CASCADE)
+  hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None, on_delete=models.SET_NULL)
   for_device = models.ForeignKey(Station, related_name='for_device', null=True, default=None)
-  src = models.ForeignKey(Station, null=True, default=None, on_delete=models.CASCADE)
+  src = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
   begin = models.DateTimeField(null=True, default=None)
   end = models.DateTimeField(null=True, default=None)
   packets = models.BigIntegerField(null=True, default=None)
@@ -266,7 +265,7 @@ class MeasurementHistory(models.Model):
 class AlgorithmHistory(models.Model):
   last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
   algo = models.CharField(max_length=128, null=True, default=None)
-  ap = models.ForeignKey(AccessPoint, null=True, default=None, on_delete=models.CASCADE)
+  ap = models.ForeignKey(AccessPoint, null=True, default=None, on_delete=models.SET_NULL)
   channel_dwell_time = models.IntegerField(null=True, default=None)
   channel_before = models.IntegerField(null=True, default=None)
   channel_after = models.IntegerField(null=True, default=None)
@@ -279,7 +278,7 @@ class AlgorithmHistory(models.Model):
 class LatencyResult(models.Model):
 
   timestamp = models.DateTimeField(null=True, default=None)
-  station = models.ForeignKey(Station, on_delete=models.CASCADE)
+  station = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
   pingArgs = models.CharField(max_length=128, null=True, default=None)
   packet_transmitted = models.IntegerField(default=0)
   packet_received = models.IntegerField(default=0)
@@ -314,7 +313,7 @@ class LatencyResult(models.Model):
 class ThroughputResult(models.Model):
 
   timestamp = models.DateTimeField(null=True, default=None)
-  station = models.ForeignKey(Station, on_delete=models.CASCADE)
+  station = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
   iperfArgs = models.CharField(max_length=128, null=True, default=None)
   all_bw = models.TextField(null=True, default=None)
   bw = models.FloatField(default=0)
