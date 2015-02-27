@@ -148,8 +148,8 @@ class Station(models.Model):
 
 
   @classmethod
-  def handle_phonelab_device(cls, reply):
-    for mac in reply['phonelabDevice']:
+  def handle_phonelab_device(cls, phonelab_devices):
+    for mac in phonelab_devices:
       sta, unused = Station.objects.get_or_create(MAC=mac)
       sta.phonelab_station = True
       sta.save()
@@ -223,6 +223,7 @@ class Traffic(models.Model):
   retry_packets = models.BigIntegerField(null=True, default=None)
   avg_rssi = models.IntegerField(null=True, default=None)
   channel = models.IntegerField(null=True, default=None)
+
   last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
 
   @classmethod

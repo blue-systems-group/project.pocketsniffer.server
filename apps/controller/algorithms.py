@@ -3,6 +3,7 @@ import random
 
 
 from django.conf import settings
+from django.db.models import Q
 
 from apps.controller.models import AccessPoint, ScanResult, Station, Traffic, AlgorithmHistory
 import measure
@@ -14,6 +15,10 @@ logger = logging.getLogger('controller')
 
 class Algorithm(object):
 
+  def __init__(self, *args, **kwargs):
+    self.need_scan_result = False
+    self.need_traffic = False
+
   def get_new_channel(self, ap):
     pass
 
@@ -22,7 +27,10 @@ class Algorithm(object):
     for k, v in kwargs.items():
       setattr(self, k, v)
 
-    for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
+    for m in [ScanResult, AccessPoint, Station, Traffic]:
+      logger.debug("%d new %s." % (m.objects.filter(last_updated__gte=self.begin).count(), m.__name__))
+
+    for ap in AccessPoint.objects.filter(last_updated__gte=self.begin, sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
       new_channel = self.get_new_channel(ap)
       if new_channel != ap.channel:
         logger.debug("Assign AP %s with new channel %d (was %d)" % (ap.BSSID, new_channel, ap.channel))
@@ -41,67 +49,55 @@ class Algorithm(object):
 
 class NoAssignment(Algorithm):
 
+  def __init__(self, *args, **kwargs):
+    super(NoAssignment, self).__init__(*args, **kwargs)
+    self.need_scan_result = False
+    self.need_traffic = False
+
   def get_new_channel(self, ap):
     return ap.channel
-
-  @property
-  def need_scan_result(self):
-    return False
-
-  @property
-  def need_traffic(self):
-    return False
-
 
 
 class RandomAssignment(Algorithm):
 
+  def __init__(self, *args, **kwargs):
+    super(RandomAssignment, self).__init__(*args, **kwargs)
+    self.need_scan_result = False
+    self.need_traffic = False
+
+
   def get_new_channel(self, ap):
     return random.choice(settings.BAND2G_CHANNELS)
-
-
-  @property
-  def need_scan_result(self):
-    return False
-
-  @property
-  def need_traffic(self):
-    return False
-
 
 
 
 
 class WeightedGraphColor(Algorithm):
 
-  @property
-  def need_scan_result(self):
-    return True
-
-  @property
-  def need_traffic(self):
-    return False
-
+  def __init__(self, *args, **kwargs):
+    super(WeightedGraphColor, self).__init__(*args, **kwargs)
+    self.need_scan_result = True
+    self.need_traffic = False
 
 
   def get_new_channel(self, ap):
-    H = dict((c, max([self.Ifactor(ap, neighbor)*self.weight(ap, neighbor) for neighbor in ap.neighbor_aps.all()])) for c in settings.BAND2G_CHANNELS)
-    logger.debug("[%s] H index: %s" % (ap.BSSID, str(H)))
+
+    H = dict()
+    for c in settings.BAND2G_CHANNELS:
+      H[c] = max([0] + [self.Ifactor(c, neighbor.channel)*self.weight(ap, neighbor) for neighbor in ap.neighbor_aps.all()])
+    logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
     return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
 
 
-  def Ifactor(self, ap1, ap2):
-    if ap1.channel == ap2.channel:
-      return 1
-    else:
-      return 0
+  def Ifactor(self, chan1, chan2):
+    return 1 if chan1 == chan2 else 0
 
 
   def weight(self, ap1, ap2):
     client_num = 0
     overhear_num = 0
 
-    for sta in Station.objects.filter(associate_with=ap1):
+    for sta in Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap1):
       client_num += 1
       if ScanResult.objects.filter(last_updated__gte=self.begin, myself_station=sta, neighbor=ap2).exists():
         overhear_num += 1
@@ -114,50 +110,37 @@ class WeightedGraphColor(Algorithm):
 
 class TerminalCount(Algorithm):
 
-  @property
-  def need_scan_result(self):
-    return False
-
-  @property
-  def need_traffic(self):
-    return True
+  def __init__(self, *args, **kwargs):
+    super(TerminalCount, self).__init__(*args, **kwargs)
+    self.need_scan_result = True
+    self.need_traffic = True
 
   def get_new_channel(self, ap):
-    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
-    H = dict((c, len(Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c).exclude(src__in=active_stas).values_list('src', flat=True))) for c in settings.BAND2G_CHANNELS)
-    logger.debug("H index: %s" % (str(H)))
+    my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
+
+    H = dict()
+    for c in settings.BAND2G_CHANNELS:
+      station_count = Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=my_stas).count()
+      ap_count = ScanResult.objects.filter(last_updated__gte=self.begin, neighbor__channel=c).filter(Q(myself_ap=ap)|Q(myself_station__in=my_stas)).count()
+      H[c] = station_count + ap_count
+
+    logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
     return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
 
 
-class TrafficAwareMinSum(Algorithm):
+class TrafficAware(Algorithm):
 
-  @property
-  def need_scan_result(self):
-    return False
+  def __init__(self, *args, **kwargs):
+    super(TrafficAware, self).__init__(*args, **kwargs)
+    self.need_scan_result = False
+    self.need_traffic = True
 
-  @property
-  def need_traffic(self):
-    return True
 
   def get_new_channel(self, ap):
-    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
-    H = dict((c, sum([tfc.packets for tfc in Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c).exclude(src__in=active_stas)])) for c in settings.BAND2G_CHANNELS)
-    logger.debug("[%s] H index: %s" % (ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+    my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
+    H = dict()
+    for c in settings.BAND2G_CHANNELS:
+      H[c] = sum(Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=my_stas).values_list('packets', flat=True))
 
-
-class TrafficAwareMinMax(Algorithm):
-
-  @property
-  def need_scan_result(self):
-    return False
-
-  @property
-  def need_traffic(self):
-    return True
-
-  def get_new_channel(self, ap):
-    active_stas = Station.objects.filter(sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
-    H = dict((c, max([0] + [tfc.packets for tfc in Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=active_stas, channel=c).exclude(src__in=active_stas)])) for c in settings.BAND2G_CHANNELS)
-    logger.debug("[%s] H index: %s" % (ap.BSSID, str(H)))
+    logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
     return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])

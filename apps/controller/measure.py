@@ -11,7 +11,7 @@ from jsonschema import validate
 
 
 from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
-from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAwareMinSum, TrafficAwareMinMax, TerminalCount
+from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware, TerminalCount
 from libs.common.util import recv_all
 
 
@@ -25,9 +25,9 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 
 MEASUREMENT_DURATION = 20
 MEASUREMENTS = {
-    "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
+    # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
     "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    # "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     }
 
 
@@ -36,8 +36,7 @@ ALGORITHMS = [
     RandomAssignment(),
     WeightedGraphColor(),
     TerminalCount(),
-    TrafficAwareMinSum(),
-    TrafficAwareMinMax(),
+    TrafficAware(),
     ]
 
 
@@ -157,6 +156,8 @@ def get_stations(need_sniffer=False):
 
 def do_measurement(**kwargs):
   logger.debug("===================== MEASUREMENT START ===================== ")
+  begin = dt.now()
+
   measurement_history = MeasurementHistory()
 
   algo = kwargs.get('algo', random.choice(ALGORITHMS))
@@ -167,8 +168,9 @@ def do_measurement(**kwargs):
   logger.debug("Choosed measurment: %s" % (key))
   measurement_history.measurement = key
 
-  client_num =  kwargs.get('client_num', None)
-  logger.debug("Client number: %d" % (client_num))
+  client_num =  kwargs.get('client_num', 8)
+  if client_num is not None:
+    logger.debug("Client number: %d" % (client_num))
 
   logger.debug("Randomly assigning AP channels.")
   for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
@@ -181,25 +183,23 @@ def do_measurement(**kwargs):
 
   if algo.need_traffic:
     for ap, sta_pairs in stations.items():
-      if len(sta_pairs) < client_num:
-        logger.debug("Not enough station pairs found for AP %s" % (ap))
-        continue
-      sta_pairs = random.sample(sta_pairs, client_num)
+      if client_num is not None and len(sta_pairs) > client_num:
+        sta_pairs = random.sample(sta_pairs, client_num)
       active_stas.extend([t[0] for t in sta_pairs])
       passive_stas.extend([t[1] for t in sta_pairs])
   else:
     for ap, stas in stations.items():
-      if len(stas) < client_num:
-        logger.debug("Not enough stations found for AP %s" % (ap))
-        continue
-      stas = random.sample(stas, client_num)
+      if client_num is not None and len(stas) > client_num:
+        stas = random.sample(stas, client_num)
       active_stas.extend(stas)
+
 
   if len(active_stas) == 0:
     logger.debug("No available active clients found.")
-    reboot_clients()
     logger.debug("===================== MEASUREMENT END    ===================== ")
     return
+
+  logger.debug("%d active clients found." % (len(active_stas)))
 
   channel_dwell_time = random.choice([5])
 
@@ -230,7 +230,7 @@ def do_measurement(**kwargs):
 
   measurement_history.end1 = dt.now()
 
-  algo.run(begin=measurement_history.begin1, end=measurement_history.end1, channel_dwell_time=channel_dwell_time)
+  algo.run(begin=begin, channel_dwell_time=channel_dwell_time)
 
   measurement_history.begin2 = dt.now()
 
