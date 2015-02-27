@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
   <ManifestTask>
-    <checkIntervalSec>900</checkIntervalSec>
+    <checkIntervalSec>1800</checkIntervalSec>
     <manifestURL>http://pocketsniffer.phone-lab.org/backend/manifest</manifestURL>
     <backupManifestURL>http://pocketsniffer.phone-lab.org/backend/manifest</backupManifestURL>
     <backupManifestThreshold>8</backupManifestThreshold>
@@ -9,6 +9,7 @@
   </ManifestTask>
 
   <UploaderTask>
+    <disabled>true</disabled>
     <checkIntervalSec>900</checkIntervalSec>
     <loggerURL>http://pocketsniffer.phone-lab.org/backend/upload/</loggerURL>
     <connectionTimeoutSec>10</connectionTimeoutSec>
@@ -21,6 +22,7 @@
   </UploaderTask>
 
   <BatteryTask>
+    <disabled>true</disabled>
     <checkIntervalSec>60</checkIntervalSec>
   </BatteryTask>
 
@@ -37,7 +39,7 @@
   </PingTask>
 
   <ScanResultTask>
-    <checkIntervalSec>300</checkIntervalSec>
+    <checkIntervalSec>60</checkIntervalSec>
     <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>
     <preSharedKey>abcd1234</preSharedKey>
     <minRSSI>-70</minRSSI>
@@ -45,7 +47,7 @@
   </ScanResultTask>
 
   <ServerTask>
-    <checkIntervalSec>300</checkIntervalSec>
+    <checkIntervalSec>60</checkIntervalSec>
     <serverPort>7654</serverPort>
     <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>
     <connectionTimeoutSec>30</connectionTimeoutSec>
@@ -73,6 +75,7 @@
   </ProximityTask>
 
   <BuildInfoTask>
+    <disabled>true</disabled>
     <checkIntervalSec>900</checkIntervalSec>
   </BuildInfoTask>
 </manifest>
