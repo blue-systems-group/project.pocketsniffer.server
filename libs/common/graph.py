@@ -83,9 +83,10 @@ class Figure(object):
     cdf = np.divide(np.cumsum(y).astype(float), sum(y)).tolist()
     if limit is None:
       limit = len(cdf)
-    ax.plot(x[:limit], cdf[:limit], '-' + color + marker, linewidth=lw, markersize=3, markeredgewidth=0, label=label)
+    x = x[:limit]
+    ax.plot(x, cdf[:limit], '-' + color + marker, linewidth=lw, markersize=3, markeredgewidth=0, label=label)
 
-    ax.set_xlim([0, limit])
+    # ax.set_xlim([min(x), max(x)])
     ax.set_yticks(np.arange(0, 1.01, 0.1))
     ax.set_ylabel('\\textbf{CDF}')
     ax.grid(True)
