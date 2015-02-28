@@ -46,11 +46,15 @@
                     "$ref": "http://pocketsniffer.phone-lab.org/static/schemas/scanresult.json#/definitions/macAddr"
                 },
                 "packets": {
-                    "description": "Number of packets transmitted by src.",
+                    "description": "Number of good packets transmitted by src.",
                     "type": "integer"
                 },
                 "retryPackets": {
                     "description": "Number of retry packets.",
+                    "type": "integer"
+                },
+                "corruptedPackets": {
+                    "description": "Number of corrupted packets.", 
                     "type": "integer"
                 },
                 "avgRSSI": {

@@ -136,6 +136,9 @@ class TerminalCount(Algorithm):
 
 class TrafficAware(Algorithm):
 
+  METRICS = ['packets', 'retry_packets', 'corrupted_packets']
+
+
   def __init__(self, *args, **kwargs):
     super(TrafficAware, self).__init__(*args, **kwargs)
     self.need_scan_result = False
@@ -143,10 +146,22 @@ class TrafficAware(Algorithm):
 
 
   def get_new_channel(self, ap):
-    my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).all()
+    my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).values_list('MAC', flat=True)
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      H[c] = sum(Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=my_stas).values_list('packets', flat=True))
+      H[c] = dict()
+      for m in TrafficAware.METRICS:
+        H[c][m] = sum(Traffic.objects.filter(last_updated__gte=self.begin, for_device__MAC__in=my_stas, channel=c).exclude(src__in=my_stas).exclude(src=ap.BSSID).values_list(m, flat=True))
 
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+
+    max_c = dict((m, max([H[c][m] for c in settings.BAND2G_CHANNELS])) for m in TrafficAware.METRICS)
+    for m in TrafficAware.METRICS:
+      for c in settings.BAND2G_CHANNELS:
+        if max_c[m] == 0:
+          H[c][m] = 0
+        else:
+          H[c][m] = float(H[c][m]) / max_c[m]
+
+    logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
+    return min(settings.BAND2G_CHANNELS, key=lambda c: (0.4*H[c]['packets'] + 0.2*H[c]['retry_packets'] + 0.4*H[c]['corrupted_packets']))

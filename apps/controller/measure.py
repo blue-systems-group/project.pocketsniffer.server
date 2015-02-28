@@ -32,7 +32,7 @@ MEASUREMENTS = {
 
 
 ALGORITHMS = [
-    # NoAssignment(),
+    NoAssignment(),
     # RandomAssignment(),
     WeightedGraphColor(),
     TerminalCount(),

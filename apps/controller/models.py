@@ -216,11 +216,12 @@ class Traffic(models.Model):
   timestamp = models.DateTimeField(null=True, default=None)
   hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None, on_delete=models.SET_NULL)
   for_device = models.ForeignKey(Station, related_name='for_device', null=True, default=None)
-  src = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
+  src = models.CharField(max_length=BSSID_LENGTH, null=True, default=None, db_index=True)
   begin = models.DateTimeField(null=True, default=None, db_index=True)
   end = models.DateTimeField(null=True, default=None, db_index=True)
   packets = models.BigIntegerField(null=True, default=None, db_index=True)
   retry_packets = models.BigIntegerField(null=True, default=None)
+  corrupted_packets = models.BigIntegerField(null=True, default=None)
   avg_rssi = models.IntegerField(null=True, default=None)
   channel = models.IntegerField(null=True, default=None, db_index=True)
 
@@ -232,17 +233,14 @@ class Traffic(models.Model):
       origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
       for_device = Station.objects.get(MAC=traffic['forDevice'])
       for entry in traffic['traffics']:
-        src, created = Station.objects.get_or_create(MAC=entry['src'])
-        if created:
-          src.save()
-
-        tfc = Traffic(hear_by=origin_sta, for_device=for_device, src=src)
+        tfc = Traffic(hear_by=origin_sta, for_device=for_device, src=entry['src'])
         tfc.begin = parser.parse(entry['begin'])
         tfc.end = parser.parse(entry['end'])
         tfc.timestamp = parser.parse(traffic['timestamp'])
         tfc.channel = entry['channel']
         tfc.packets = entry['packets']
         tfc.retry_packets = entry['retryPackets']
+        tfc.corrupted_packets = entry['corruptedPackets']
         tfc.avg_rssi = entry['avgRSSI']
         tfc.save()
 
