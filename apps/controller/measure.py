@@ -125,9 +125,7 @@ class Request(dict):
 def get_stations(need_sniffer=False):
   now = dt.now()
 
-  Request({'action': 'collect', 'apStatus': True}).broadcast()
-  Request({'action': 'collect', 'stationDump': True}).broadcast()
-  Request({'action': 'collect', 'nearbyDevices': True}).broadcast()
+  Request({'action': 'collect', 'apStatus': True, 'stationDump': True, 'phonelabDevice': True, 'nearbyDevices': True}).broadcast()
 
   stations = dict()
 
@@ -156,9 +154,9 @@ def get_stations(need_sniffer=False):
 
 def do_measurement(**kwargs):
   logger.debug("===================== MEASUREMENT START ===================== ")
-  begin = dt.now()
 
   measurement_history = MeasurementHistory()
+  measurement_history.begin1 = dt.now()
 
   algo = kwargs.get('algo', random.choice(ALGORITHMS))
   logger.debug("Choosed algorithm: %s" % (algo.__class__.__name__))
@@ -195,7 +193,6 @@ def do_measurement(**kwargs):
         stas = random.sample(stas, client_num)
       active_stas.extend(stas)
 
-
   if len(active_stas) == 0:
     logger.debug("No available active clients found.")
     logger.debug("===================== MEASUREMENT END    ===================== ")
@@ -207,8 +204,6 @@ def do_measurement(**kwargs):
 
   measure_request = Request(MEASUREMENTS[key])
   measure_request['clients'] = active_stas
-
-  measurement_history.begin1 = dt.now()
 
   if algo.need_traffic:
     Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': channel_dwell_time, 'clients': active_stas}).broadcast()
@@ -232,7 +227,7 @@ def do_measurement(**kwargs):
 
   measurement_history.end1 = dt.now()
 
-  algo.run(begin=begin, channel_dwell_time=channel_dwell_time)
+  algo.run(begin=measurement_history.begin1, channel_dwell_time=channel_dwell_time)
 
   measurement_history.begin2 = dt.now()
 
