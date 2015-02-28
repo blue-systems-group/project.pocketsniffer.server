@@ -17,21 +17,21 @@ logger = logging.getLogger('controller')
 
 class AccessPoint(models.Model):
 
-  BSSID = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
-  SSID = models.CharField(max_length=MAX_SSID_LENGTH, null=True, default=None)
-  channel = models.IntegerField(null=True, default=None)
+  BSSID = models.CharField(max_length=BSSID_LENGTH, null=True, default=None, db_index=True)
+  SSID = models.CharField(max_length=MAX_SSID_LENGTH, null=True, default=None, db_index=True)
+  channel = models.IntegerField(null=True, default=None, db_index=True)
   client_num = models.IntegerField(null=True, default=None)
   load = models.FloatField(null=True, default=None)
 
-  sniffer_ap = models.BooleanField(default=False)
-  MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
-  IP  = models.CharField(null=True, max_length=128, default=None)
+  sniffer_ap = models.BooleanField(default=False, db_index=True)
+  MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None, db_index=True)
+  IP  = models.CharField(null=True, max_length=128, default=None, db_index=True)
   tx_power = models.IntegerField(null=True, default=None)
   noise = models.IntegerField(null=True, default=None)
   enabled = models.BooleanField(default=True)
   neighbor_aps = models.ManyToManyField('self', through='ScanResult', through_fields=('myself_ap', 'neighbor'), symmetrical=False)
 
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True, db_index=True)
 
   def __repr__(self):
     d = {}
@@ -94,15 +94,15 @@ class AccessPoint(models.Model):
 
 class Station(models.Model):
 
-  MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None)
+  MAC = models.CharField(max_length=BSSID_LENGTH, null=True, default=None, db_index=True)
 
   associate_with = models.ForeignKey(AccessPoint, related_name='associated_stations', null=True, default=None, on_delete=models.SET_NULL)
 
-  sniffer_station = models.BooleanField(default=False)
-  phonelab_station = models.BooleanField(default=False)
+  sniffer_station = models.BooleanField(default=False, db_index=True)
+  phonelab_station = models.BooleanField(default=False, db_index=True)
   scan_results = models.ManyToManyField(AccessPoint, related_name='visible_stations', through='ScanResult', through_fields=('myself_station', 'neighbor'), symmetrical=False)
 
-  IP = models.CharField(max_length=128, null=True, default=None)
+  IP = models.CharField(max_length=128, null=True, default=None, db_index=True)
 
   inactive_time = models.IntegerField(null=True, default=None)
   rx_bytes = models.BigIntegerField(null=True, default=None)
@@ -117,7 +117,7 @@ class Station(models.Model):
 
   neighbor_station = models.ForeignKey('Station', null=True, default=None, on_delete=models.SET_NULL)
 
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True, db_index=True)
 
 
   @classmethod
@@ -170,7 +170,7 @@ class ScanResult(models.Model):
   neighbor = models.ForeignKey(AccessPoint, related_name='neighbor', null=True, default=None, on_delete=models.SET_NULL)
   signal = models.IntegerField(null=True, default=None)
   timestamp = models.DateTimeField(null=True, default=None)
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True, db_index=True)
 
   @classmethod
   def handle_client_scan(cls, client_scan):
@@ -216,15 +216,16 @@ class Traffic(models.Model):
   timestamp = models.DateTimeField(null=True, default=None)
   hear_by = models.ForeignKey(Station, related_name='heard_traffic', null=True, default=None, on_delete=models.SET_NULL)
   for_device = models.ForeignKey(Station, related_name='for_device', null=True, default=None)
-  src = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
-  begin = models.DateTimeField(null=True, default=None)
-  end = models.DateTimeField(null=True, default=None)
-  packets = models.BigIntegerField(null=True, default=None)
+  src = models.CharField(max_length=BSSID_LENGTH, null=True, default=None, db_index=True)
+  begin = models.DateTimeField(null=True, default=None, db_index=True)
+  end = models.DateTimeField(null=True, default=None, db_index=True)
+  packets = models.BigIntegerField(null=True, default=None, db_index=True)
   retry_packets = models.BigIntegerField(null=True, default=None)
+  corrupted_packets = models.BigIntegerField(null=True, default=None)
   avg_rssi = models.IntegerField(null=True, default=None)
-  channel = models.IntegerField(null=True, default=None)
+  channel = models.IntegerField(null=True, default=None, db_index=True)
 
-  last_updated = models.DateTimeField(null=True, default=None, auto_now=True)
+  last_updated = models.DateTimeField(null=True, default=None, auto_now=True, db_index=True)
 
   @classmethod
   def handle_client_traffic(cls, client_traffic):
@@ -232,31 +233,29 @@ class Traffic(models.Model):
       origin_sta, unused = Station.objects.get_or_create(MAC=traffic['MAC'])
       for_device = Station.objects.get(MAC=traffic['forDevice'])
       for entry in traffic['traffics']:
-        src, created = Station.objects.get_or_create(MAC=entry['src'])
-        if created:
-          src.save()
-
-        tfc = Traffic(hear_by=origin_sta, for_device=for_device, src=src)
+        tfc = Traffic(hear_by=origin_sta, for_device=for_device, src=entry['src'])
         tfc.begin = parser.parse(entry['begin'])
         tfc.end = parser.parse(entry['end'])
         tfc.timestamp = parser.parse(traffic['timestamp'])
         tfc.channel = entry['channel']
         tfc.packets = entry['packets']
         tfc.retry_packets = entry['retryPackets']
+        tfc.corrupted_packets = entry['corruptedPackets']
         tfc.avg_rssi = entry['avgRSSI']
         tfc.save()
 
 
 
 class MeasurementHistory(models.Model):
-  begin1 = models.DateTimeField(null=True, default=None)
+  begin1 = models.DateTimeField(null=True, default=None, db_index=True)
   end1 = models.DateTimeField(null=True, default=None)
 
   begin2 = models.DateTimeField(null=True, default=None)
   end2 = models.DateTimeField(null=True, default=None)
 
-  measurement = models.CharField(max_length=128, null=True, default=None)
-  algo = models.CharField(max_length=128, null=True, default=None)
+  measurement = models.CharField(max_length=128, null=True, default=None, db_index=True)
+  algo = models.CharField(max_length=128, null=True, default=None, db_index=True)
+  station_map = models.TextField(null=True, default=None)
 
   def __repr__(self):
     return json.dumps({'begin': str(self.begin1), 'end': str(self.end2), 'algo': str(self.algo), 'measurement': str(self.measurement)})
@@ -264,12 +263,12 @@ class MeasurementHistory(models.Model):
 
 
 class AlgorithmHistory(models.Model):
-  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
-  algo = models.CharField(max_length=128, null=True, default=None)
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True, db_index=True)
+  algo = models.CharField(max_length=128, null=True, default=None, db_index=True)
   ap = models.ForeignKey(AccessPoint, null=True, default=None, on_delete=models.SET_NULL)
   channel_dwell_time = models.IntegerField(null=True, default=None)
-  channel_before = models.IntegerField(null=True, default=None)
-  channel_after = models.IntegerField(null=True, default=None)
+  channel_before = models.IntegerField(null=True, default=None, db_index=True)
+  channel_after = models.IntegerField(null=True, default=None, db_index=True)
 
   def __repr__(self):
     return json.dumps({'algorithm': self.algo, 'ap': self.ap.BSSID, 'before': self.channel_before, 'after': self.channel_after})
@@ -278,17 +277,17 @@ class AlgorithmHistory(models.Model):
 
 class LatencyResult(models.Model):
 
-  timestamp = models.DateTimeField(null=True, default=None)
+  timestamp = models.DateTimeField(null=True, default=None, db_index=True)
   station = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
   pingArgs = models.CharField(max_length=128, null=True, default=None)
   packet_transmitted = models.IntegerField(default=0)
   packet_received = models.IntegerField(default=0)
-  min_rtt = models.FloatField(default=0)
-  max_rtt = models.FloatField(default=0)
-  avg_rtt = models.FloatField(default=0)
-  std_dev = models.FloatField(default=0)
+  min_rtt = models.FloatField(default=0, db_index=True)
+  max_rtt = models.FloatField(default=0, db_index=True)
+  avg_rtt = models.FloatField(default=0, db_index=True)
+  std_dev = models.FloatField(default=0, db_index=True)
 
-  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True, db_index=True)
 
 
   @classmethod
@@ -313,13 +312,13 @@ class LatencyResult(models.Model):
 
 class ThroughputResult(models.Model):
 
-  timestamp = models.DateTimeField(null=True, default=None)
+  timestamp = models.DateTimeField(null=True, default=None, db_index=True)
   station = models.ForeignKey(Station, null=True, default=None, on_delete=models.SET_NULL)
   iperfArgs = models.CharField(max_length=128, null=True, default=None)
   all_bw = models.TextField(null=True, default=None)
-  bw = models.FloatField(default=0)
+  bw = models.FloatField(default=0, db_index=True)
 
-  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True)
+  last_updated = models.DateTimeField(null=True, auto_now=True, auto_now_add=True, db_index=True)
 
   @classmethod
   def handle_client_throughput(cls, client_throughput):
