@@ -25,15 +25,15 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 
 MEASUREMENT_DURATION = 20
 MEASUREMENTS = {
-    # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
+    "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
     "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    # "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     }
 
 
 ALGORITHMS = [
-    NoAssignment(),
-    RandomAssignment(),
+    # NoAssignment(),
+    # RandomAssignment(),
     WeightedGraphColor(),
     TerminalCount(),
     TrafficAware(),
@@ -168,7 +168,8 @@ def do_measurement(**kwargs):
   logger.debug("Choosed measurment: %s" % (key))
   measurement_history.measurement = key
 
-  client_num =  kwargs.get('client_num', 8)
+  client_num =  kwargs.get('client_num', 1)
+
   if client_num is not None:
     logger.debug("Client number: %d" % (client_num))
 
@@ -178,6 +179,7 @@ def do_measurement(**kwargs):
 
   logger.debug("Getting stations.")
   stations = get_stations(need_sniffer=algo.need_traffic)
+  measurement_history.station_map = json.dumps(stations)
 
   active_stas, passive_stas = [], []
 

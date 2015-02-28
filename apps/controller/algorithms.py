@@ -82,9 +82,15 @@ class WeightedGraphColor(Algorithm):
 
   def get_new_channel(self, ap):
 
+    logger.debug("%d neighbors" % (ScanResult.objects.filter(last_updated__gte=self.begin, myself_ap=ap).count()))
+
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      H[c] = max([0] + [self.Ifactor(c, neighbor.channel)*self.weight(ap, neighbor) for neighbor in ap.neighbor_aps.all()])
+      h = []
+      for neighbor_id in ScanResult.objects.filter(last_updated__gte=self.begin, myself_ap=ap).values_list('neighbor', flat=True):
+        neighbor = AccessPoint.objects.get(id=neighbor_id)
+        h.append(self.Ifactor(c, neighbor.channel)*self.weight(ap, neighbor))
+      H[c] = max([0] + h)
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
     return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
 
