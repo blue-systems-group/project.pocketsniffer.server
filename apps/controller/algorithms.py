@@ -126,7 +126,7 @@ class TerminalCount(Algorithm):
 
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      station_count = Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=my_stas).count()
+      station_count = Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=[s.MAC for s in my_stas]).exclude(src=ap.BSSID).count()
       ap_count = ScanResult.objects.filter(last_updated__gte=self.begin, neighbor__channel=c).filter(Q(myself_ap=ap)|Q(myself_station__in=my_stas)).count()
       H[c] = station_count + ap_count
 
