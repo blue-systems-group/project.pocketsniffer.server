@@ -257,6 +257,8 @@ class MeasurementHistory(models.Model):
   algo = models.CharField(max_length=128, null=True, default=None, db_index=True)
   station_map = models.TextField(null=True, default=None)
 
+  ap = models.ForeignKey(AccessPoint, null=True, default=None)
+
   def __repr__(self):
     return json.dumps({'begin': str(self.begin1), 'end': str(self.end2), 'algo': str(self.algo), 'measurement': str(self.measurement)})
 

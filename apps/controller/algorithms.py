@@ -1,4 +1,5 @@
 import logging
+import json
 import random
 
 
@@ -22,15 +23,24 @@ class Algorithm(object):
   def get_new_channel(self, ap):
     pass
 
+  @property
+  def name(self):
+    return self.__class__.__name__
 
   def run(self, **kwargs):
     for k, v in kwargs.items():
       setattr(self, k, v)
 
+    if 'ap' in kwargs:
+      target_aps = [kwargs['ap']]
+    else:
+      target_aps = AccessPoint.objects.filter(last_updated__gte=self.begin, sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS)
+
+
     for m in [ScanResult, AccessPoint, Station, Traffic]:
       logger.debug("%d new %s." % (m.objects.filter(last_updated__gte=self.begin).count(), m.__name__))
 
-    for ap in AccessPoint.objects.filter(last_updated__gte=self.begin, sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
+    for ap in target_aps:
       new_channel = self.get_new_channel(ap)
       if new_channel != ap.channel:
         logger.debug("Assign AP %s with new channel %d (was %d)" % (ap.BSSID, new_channel, ap.channel))
@@ -144,6 +154,12 @@ class TrafficAware(Algorithm):
     self.need_scan_result = False
     self.need_traffic = True
 
+    self.weight = kwargs.get('weight', {'packets': 0.4, 'retry_packets': 0.2, 'corrupted_packets': 0.4})
+
+  @property
+  def name(self):
+    return '%s-%s' % (self.__class__.__name__, json.dumps(self.weight))
+
 
   def get_new_channel(self, ap):
     my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).values_list('MAC', flat=True)
@@ -164,4 +180,4 @@ class TrafficAware(Algorithm):
           H[c][m] = float(H[c][m]) / max_c[m]
 
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda c: (0.4*H[c]['packets'] + 0.2*H[c]['retry_packets'] + 0.4*H[c]['corrupted_packets']))
+    return min(settings.BAND2G_CHANNELS, key=lambda c: sum([H[c][k]*v for k, v in self.weight.items()]))

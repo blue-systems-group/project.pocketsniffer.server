@@ -24,6 +24,8 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 
 
 MEASUREMENT_DURATION = 20
+CHANNEL_DWELL_TIME = 5
+
 MEASUREMENTS = {
     # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
     # "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
@@ -32,12 +34,18 @@ MEASUREMENTS = {
 
 
 ALGORITHMS = [
-    NoAssignment(),
+    # NoAssignment(),
     # RandomAssignment(),
-    WeightedGraphColor(),
-    TerminalCount(),
-    TrafficAware(),
+    # WeightedGraphColor(),
+    # TerminalCount(),
+    TrafficAware(weight={'packets': 1, 'retry_packets': 0, 'corrupted_packets': 0}),
+    TrafficAware(weight={'packets': 0, 'retry_packets': 1, 'corrupted_packets': 0}),
+    TrafficAware(weight={'packets': 0, 'retry_packets': 0, 'corrupted_packets': 1}),
+    TrafficAware(weight={'packets': 0.4, 'retry_packets': 0.2, 'corrupted_packets': 0.4}),
     ]
+
+
+DEFAULT_REPEAT = 50
 
 
 class Request(dict):
@@ -122,7 +130,7 @@ class Request(dict):
 
 
 
-def get_stations(need_sniffer=False):
+def get_stations(need_sniffer=False, enforce_association=False):
   now = dt.now()
 
   Request({'action': 'collect', 'apStatus': True, 'stationDump': True, 'phonelabDevice': True, 'nearbyDevices': True}).broadcast()
@@ -130,18 +138,23 @@ def get_stations(need_sniffer=False):
   stations = dict()
 
   if not need_sniffer:
-    for sta in Station.objects.filter(sniffer_station=True, last_updated__gte=now, associate_with__isnull=False):
+    for sta in Station.objects.filter(sniffer_station=True, last_updated__gte=now):
       BSSID = sta.associate_with.BSSID
       if BSSID not in stations:
         stations[BSSID] = []
       stations[BSSID].append(sta.MAC)
   else:
-    for active_sta in Station.objects.filter(sniffer_station=True, neighbor_station__isnull=True, last_updated__gte=now, associate_with__isnull=False):
+    for active_sta in Station.objects.filter(sniffer_station=True, neighbor_station__isnull=True, last_updated__gte=now):
       try:
         passive_sta = Station.objects.filter(neighbor_station=active_sta, last_updated__gte=now)[0]
       except:
         logger.debug("No passive device for station %s" % (active_sta.MAC))
         continue
+
+      if enforce_association and passive_sta.associate_with != active_sta.associate_with:
+        logger.debug("Force %s reassociate with %s" % (passive_sta.MAC, active_sta.associate_with.BSSID))
+        Request({'action': 'clientReassoc', 'clients': [passive_sta.MAC], 'newBSSID': active_sta.associate_with.BSSID}).send(passive_sta.associate_with.BSSID)
+
       BSSID = active_sta.associate_with.BSSID
       if BSSID not in stations:
         stations[BSSID] = []
@@ -152,6 +165,88 @@ def get_stations(need_sniffer=False):
 
 
 
+class APMeasurementThread(threading.Thread):
+
+  def __init__(self, ap, **kwargs):
+    super(APMeasurementThread, self).__init__()
+    self.ap = ap
+    self.repeat = kwargs.get('repeat', DEFAULT_REPEAT)
+
+
+  def do_measurement(self, algo, measurement):
+    measurement_history = MeasurementHistory()
+    measurement_history.begin1 = dt.now()
+
+    station_map = get_stations(algo.need_traffic, enforce_association=True)
+    all_stations = station_map[self.ap.BSSID]
+    if len(all_stations) == 0:
+      logger.debug("No stations found for AP %s." % (self.ap.BSSID))
+      return
+
+    measurement_history.ap = self.ap
+    measurement_history.algo = algo.name
+    measurement_history.measurement = measurement
+    measurement_history.station_map = json.dumps(station_map)
+
+    client_num = random.randint(1, min(len(all_stations), 4))
+    all_stations = random.sample(all_stations, client_num)
+
+    if algo.need_traffic:
+      active_stas = [t[0] for t in all_stations]
+      passive_stas = [t[1] for t in all_stations]
+    else:
+      active_stas = all_stations
+
+    logger.debug("================ MEASUREMENT BEGIN =====================")
+    logger.debug("Algorithm: %s" % (algo.name))
+    logger.debug("Measurment: %s" % (measurement))
+    logger.debug("Client number: %d" % (client_num))
+
+    if algo.need_traffic:
+      Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': CHANNEL_DWELL_TIME, 'clients': active_stas}).send(self.ap.BSSID)
+      time.sleep(CHANNEL_DWELL_TIME*len(settings.BAND2G_CHANNELS))
+      for sta in passive_stas:
+        logger.debug("Waiting for traffic statistics from %s" % (sta))
+        for unused in range(0, 20):
+          if Traffic.objects.filter(last_updated__gte=measurement_history.begin1, hear_by__MAC=sta).exists():
+            break
+          time.sleep(1)
+      if not Traffic.objects.filter(last_updated__gte=measurement_history.begin1, hear_by__MAC__in=passive_stas).exists():
+        logger.debug("No traffic statistics for any active device.")
+        logger.debug("===================== MEASUREMENT END    ===================== ")
+        return
+
+    if algo.need_scan_result:
+      Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).send(self.ap.BSSID)
+
+    algo.run(begin=measurement_history.begin1, ap=self.ap)
+
+    measure_request = Request(MEASUREMENTS[measurement])
+    measure_request['clients'] = active_stas
+    measure_request.send(self.ap.BSSID)
+
+    measurement_history.end2 = dt.now()
+    measurement_history.save()
+    logger.debug("===================== MEASUREMENT END    ===================== ")
+
+
+  def run(self):
+    for unused in range(0, self.repeat):
+      algo = random.choice(ALGORITHMS)
+      measurement = random.choice(MEASUREMENTS.keys())
+      self.do_measurement(algo, measurement)
+      time.sleep(random.randint(1, 10))
+
+
+
+def ap_measure(**kwargs):
+  station_map = get_stations(need_sniffer=True)
+  for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS, BSSID__in=station_map.keys()):
+    t = APMeasurementThread(ap, **kwargs)
+    t.start()
+
+
+
 def do_measurement(**kwargs):
   logger.debug("===================== MEASUREMENT START ===================== ")
 
@@ -159,21 +254,22 @@ def do_measurement(**kwargs):
   measurement_history.begin1 = dt.now()
 
   algo = kwargs.get('algo', random.choice(ALGORITHMS))
-  logger.debug("Choosed algorithm: %s" % (algo.__class__.__name__))
-  measurement_history.algo = algo.__class__.__name__
+  logger.debug("Choosed algorithm: %s" % (algo.name))
+  measurement_history.algo = algo.name
 
   key = kwargs.get('measure', random.choice(MEASUREMENTS.keys()))
   logger.debug("Choosed measurment: %s" % (key))
   measurement_history.measurement = key
 
-  client_num =  kwargs.get('client_num', 2)
+  client_num =  kwargs.get('client_num', 1)
 
   if client_num is not None:
     logger.debug("Client number: %d" % (client_num))
 
   logger.debug("Randomly assigning AP channels.")
+  chan = random.choice(settings.BAND2G_CHANNELS)
   for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
-    Request({'action': 'apConfig', 'band2g': {'channel': random.choice(settings.BAND2G_CHANNELS)}}).send(ap.BSSID)
+    Request({'action': 'apConfig', 'band2g': {'channel': chan}}).send(ap.BSSID)
 
   logger.debug("Getting stations.")
   stations = get_stations(need_sniffer=algo.need_traffic)
