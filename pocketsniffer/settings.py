@@ -37,6 +37,7 @@ BAND5G_CHANNELS = range(36, 49, 4) + range(149, 166, 4)
 
 SHELL_PLUS_PRE_IMPORTS = (
     ('collections', 'Counter'),
+    ('datetime', ('datetime')),
     'json',
     )
 
@@ -70,7 +71,7 @@ INSTALLED_APPS = (
     'djcelery',
     'apps.backend',
     'apps.controller',
-)
+    )
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -80,7 +81,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-)
+    )
 
 CELERY_RESULT_BACKEND='djcelery.backends.database:DatabaseBackend'
 BROKER_URL = 'amqp://guest:guest@localhost:5672//'
@@ -120,7 +121,7 @@ BACKEND_LOCK_DEFAULTS = {
       'sleep': datetime.timedelta(seconds=1),
       'block': True,
       },
-  }
+    }
 
 
 
@@ -130,14 +131,14 @@ BACKEND_LOCK_DEFAULTS = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'pocketsniffer',
-        'USER': 'pocketsniffer',
-        'PASSWORD': 'pocketsniffer',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',  
+      'ENGINE': 'django.db.backends.postgresql_psycopg2',
+      'NAME': 'pocketsniffer',
+      'USER': 'pocketsniffer',
+      'PASSWORD': 'pocketsniffer',
+      'HOST': '127.0.0.1',
+      'PORT': '5432',  
+      }
     }
-}
 
 
 
@@ -249,6 +250,7 @@ LOGGING = {
         }
       }
     }
+
 
 
 # Local settings
