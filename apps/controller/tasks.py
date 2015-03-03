@@ -12,7 +12,7 @@ from django.conf import settings
 from celery import shared_task
 
 
-from apps.controller.measure import do_measurement, MEASUREMENT_DURATION
+from apps.controller.measure import ap_measurement
 from apps.controller.models import Traffic
 from libs.common.util import get_iface_addr, recv_all
 
@@ -37,19 +37,10 @@ def trigger_measurement(self, *args, **kwargs):
   with open(MEASUREMENT_TASK_ID_FILE, 'w') as f:
     print >>f, self.request.id
 
-  min_interval = int(kwargs.get('min_interval', 0))
-  max_interval = int(kwargs.get('max_interval', MEASUREMENT_DURATION))
+  threads = ap_measurement(**kwargs)
+  for t in threads:
+    t.join()
 
-  logger.debug("Interval range [%d, %d]" % (min_interval, max_interval))
-
-  while True:
-    do_measurement(**kwargs)
-
-    if kwargs.get('oneshot', False):
-      break
-
-    interval = random.randint(min_interval, max_interval)
-    time.sleep(interval)
 
 
 @shared_task(bind=True)

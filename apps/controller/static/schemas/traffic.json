@@ -60,6 +60,10 @@
                 "avgRSSI": {
                     "description": "Average RSSI of packets from src.",
                     "type": "integer"
+                },
+                "bytes": {
+                    "description": "Byte count of good packets.",
+                    "type": "integer"
                 }
             }
         }

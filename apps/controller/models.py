@@ -222,6 +222,7 @@ class Traffic(models.Model):
   packets = models.BigIntegerField(null=True, default=None, db_index=True)
   retry_packets = models.BigIntegerField(null=True, default=None)
   corrupted_packets = models.BigIntegerField(null=True, default=None)
+  bytes = models.BigIntegerField(null=True, default=None)
   avg_rssi = models.IntegerField(null=True, default=None)
   channel = models.IntegerField(null=True, default=None, db_index=True)
 
@@ -242,6 +243,7 @@ class Traffic(models.Model):
         tfc.retry_packets = entry['retryPackets']
         tfc.corrupted_packets = entry['corruptedPackets']
         tfc.avg_rssi = entry['avgRSSI']
+        tfc.bytes = entry.get('bytes', 0)
         tfc.save()
 
 
@@ -256,6 +258,7 @@ class MeasurementHistory(models.Model):
   measurement = models.CharField(max_length=128, null=True, default=None, db_index=True)
   algo = models.CharField(max_length=128, null=True, default=None, db_index=True)
   station_map = models.TextField(null=True, default=None)
+  client_num = models.IntegerField(null=True, default=None)
 
   ap = models.ForeignKey(AccessPoint, null=True, default=None)
 

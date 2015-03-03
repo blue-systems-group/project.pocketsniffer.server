@@ -22,30 +22,30 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
     REPLY_SCHEMA = json.loads(f.read())
  
 
-
 MEASUREMENT_DURATION = 20
 CHANNEL_DWELL_TIME = 5
-
 MEASUREMENTS = {
     # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
-    # "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     }
 
 
 ALGORITHMS = [
     # NoAssignment(),
-    # RandomAssignment(),
-    # WeightedGraphColor(),
-    # TerminalCount(),
-    TrafficAware(weight={'packets': 1, 'retry_packets': 0, 'corrupted_packets': 0}),
-    TrafficAware(weight={'packets': 0, 'retry_packets': 1, 'corrupted_packets': 0}),
-    TrafficAware(weight={'packets': 0, 'retry_packets': 0, 'corrupted_packets': 1}),
+    RandomAssignment(),
+    WeightedGraphColor(),
+    TerminalCount(),
     TrafficAware(weight={'packets': 0.4, 'retry_packets': 0.2, 'corrupted_packets': 0.4}),
+    # TrafficAware(weight={'packets': 1, 'retry_packets': 0, 'corrupted_packets': 0}),
+    # TrafficAware(weight={'packets': 0, 'retry_packets': 1, 'corrupted_packets': 0}),
+    # TrafficAware(weight={'packets': 0, 'retry_packets': 0, 'corrupted_packets': 1}),
     ]
 
+MAX_CLIENT_NUM = 4
 
-DEFAULT_REPEAT = 50
+
+DEFAULT_REPEAT = len(MEASUREMENTS) * len(ALGORITHMS) * MAX_CLIENT_NUM * 10
 
 
 class Request(dict):
@@ -182,14 +182,14 @@ class APMeasurementThread(threading.Thread):
     if len(all_stations) == 0:
       logger.debug("No stations found for AP %s." % (self.ap.BSSID))
       return
+    client_num = random.randint(1, min(len(all_stations), MAX_CLIENT_NUM))
+    all_stations = random.sample(all_stations, client_num)
 
     measurement_history.ap = self.ap
     measurement_history.algo = algo.name
     measurement_history.measurement = measurement
     measurement_history.station_map = json.dumps(station_map)
-
-    client_num = random.randint(1, min(len(all_stations), 4))
-    all_stations = random.sample(all_stations, client_num)
+    measurement_history.client_num = client_num
 
     if algo.need_traffic:
       active_stas = [t[0] for t in all_stations]
@@ -232,107 +232,21 @@ class APMeasurementThread(threading.Thread):
 
   def run(self):
     for unused in range(0, self.repeat):
+      logger.debug("================ Run #: %d  =====================" % (unused))
       algo = random.choice(ALGORITHMS)
       measurement = random.choice(MEASUREMENTS.keys())
       self.do_measurement(algo, measurement)
-      time.sleep(random.randint(1, 10))
+      time.sleep(random.randint(1, MEASUREMENT_DURATION))
 
 
-
-def ap_measure(**kwargs):
+def ap_measurement(**kwargs):
   station_map = get_stations(need_sniffer=True)
+  threads = []
   for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS, BSSID__in=station_map.keys()):
     t = APMeasurementThread(ap, **kwargs)
     t.start()
-
-
-
-def do_measurement(**kwargs):
-  logger.debug("===================== MEASUREMENT START ===================== ")
-
-  measurement_history = MeasurementHistory()
-  measurement_history.begin1 = dt.now()
-
-  algo = kwargs.get('algo', random.choice(ALGORITHMS))
-  logger.debug("Choosed algorithm: %s" % (algo.name))
-  measurement_history.algo = algo.name
-
-  key = kwargs.get('measure', random.choice(MEASUREMENTS.keys()))
-  logger.debug("Choosed measurment: %s" % (key))
-  measurement_history.measurement = key
-
-  client_num =  kwargs.get('client_num', 1)
-
-  if client_num is not None:
-    logger.debug("Client number: %d" % (client_num))
-
-  logger.debug("Randomly assigning AP channels.")
-  chan = random.choice(settings.BAND2G_CHANNELS)
-  for ap in AccessPoint.objects.filter(sniffer_ap=True, channel__in=settings.BAND2G_CHANNELS):
-    Request({'action': 'apConfig', 'band2g': {'channel': chan}}).send(ap.BSSID)
-
-  logger.debug("Getting stations.")
-  stations = get_stations(need_sniffer=algo.need_traffic)
-  measurement_history.station_map = json.dumps(stations)
-
-  active_stas, passive_stas = [], []
-
-  if algo.need_traffic:
-    for ap, sta_pairs in stations.items():
-      if client_num is not None and len(sta_pairs) > client_num:
-        sta_pairs = random.sample(sta_pairs, client_num)
-      active_stas.extend([t[0] for t in sta_pairs])
-      passive_stas.extend([t[1] for t in sta_pairs])
-  else:
-    for ap, stas in stations.items():
-      if client_num is not None and len(stas) > client_num:
-        stas = random.sample(stas, client_num)
-      active_stas.extend(stas)
-
-  if len(active_stas) == 0:
-    logger.debug("No available active clients found.")
-    logger.debug("===================== MEASUREMENT END    ===================== ")
-    return
-
-  logger.debug("%d active clients found." % (len(active_stas)))
-
-  channel_dwell_time = random.choice([5])
-
-  measure_request = Request(MEASUREMENTS[key])
-  measure_request['clients'] = active_stas
-
-  if algo.need_traffic:
-    Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': channel_dwell_time, 'clients': active_stas}).broadcast()
-
-  measure_request.broadcast()
-
-  if algo.need_scan_result:
-    Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).broadcast()
-
-  if algo.need_traffic:
-    for active_sta in active_stas:
-      logger.debug("Waiting for traffic statistics for %s." % (active_sta))
-      for unused in range(0, 20):
-        if Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC=active_sta).exists():
-          break
-        time.sleep(1)
-    if not Traffic.objects.filter(last_updated__gte=measurement_history.begin1, for_device__MAC__in=active_stas).exists():
-      logger.debug("No traffic statistics for any active device.")
-      logger.debug("===================== MEASUREMENT END    ===================== ")
-      return
-
-  measurement_history.end1 = dt.now()
-
-  algo.run(begin=measurement_history.begin1, channel_dwell_time=channel_dwell_time)
-
-  measurement_history.begin2 = dt.now()
-
-  measure_request.broadcast()
-
-  measurement_history.end2 = dt.now()
-
-  measurement_history.save()
-  logger.debug("===================== MEASUREMENT END    ===================== ")
+    threads.append(t)
+  return threads
 
 
 def reboot_clients():
