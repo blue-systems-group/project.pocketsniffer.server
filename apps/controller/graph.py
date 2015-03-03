@@ -5,6 +5,8 @@ from datetime import datetime as dt
 from itertools import chain
 import numpy as np
 
+from matplotlib.artist import setp
+
 from libs.common.graph import Figure
 from apps.controller.models import MeasurementHistory, ThroughputResult
 
@@ -28,12 +30,161 @@ ALGORITHMS = [
 # BEGIN = dt(2015, 03, 1, 22, 46); END = dt(2015, 3, 2, 0, 22) # UDP+TCP, 2 AP, 1-4 # clinets
 # BEGIN = dt(2015, 03, 02, 2, 34); END = dt(2015, 3, 2, 4, 20)
 # BEGIN = dt(2015, 03, 02, 5, 00); END = dt(2015, 3, 2, 6, 13) 
-BEGIN = dt(2015, 03, 02, 23, 04); END = dt(2015, 3, 3, 2, 06) # UDP, single # # AP, 1-4 clients
-# BEGIN = dt(2015, 03, 03, 2, 19); END = dt(2016, 3, 3, 2, 06) # TCP, single AP, 1-4 clients
+# BEGIN = dt(2015, 03, 02, 23, 04); END = dt(2015, 3, 3, 2, 06) # UDP uplink, single # # AP, 1-4 clients
+# BEGIN = dt(2015, 03, 03, 2, 19); END = dt(2015, 3, 3, 5, 16) # TCP uplink, single AP, 1-4 clients
+BEGIN = dt(2015, 3, 3, 20, 38); END = dt(2016, 3, 3, 2, 06) # TCP downlink, single AP, 1-4 clients
 
 
 MAX_CLIENT_NUM = 4
 IGNORE_NO_CHAN_SWITCH = False
+
+class ThroughputComaprisonFigure(Figure):
+
+  def __init__(self):
+    super(ThroughputComaprisonFigure, self).__init__(basedir=FIGURE_DIR)
+
+  def get_data(self):
+    measurement_history_query = MeasurementHistory.objects.filter(begin1__gte=BEGIN, begin1__lte=END)
+    algorithms = set(measurement_history_query.values_list('algo', flat=True))
+    data = dict((a, dict((n, []) for n in range(1, MAX_CLIENT_NUM+1))) for a in algorithms)
+
+    for algo in algorithms:
+      for measurement_history in measurement_history_query.filter(measurement=self.measurement, algo=algo).order_by('begin1'):
+        station_map = json.loads(measurement_history.station_map)
+
+        if algo in ['TerminalCount', 'TrafficAware'] or algo.startswith('Traffic'):
+          for ap, stas in station_map.items():
+            station_map[ap] = list(chain.from_iterable(stas))
+
+        for ap, stas in station_map.items():
+          throughput_result_query = ThroughputResult.objects.filter(last_updated__gte=measurement_history.begin1, last_updated__lte=measurement_history.end2, station__MAC__in=stas)
+          active_client_num = throughput_result_query.count()
+          if active_client_num == 0:
+            continue
+
+          self.collect_one_ap(data[algo][active_client_num], throughput_result_query)
+
+    return data
+
+
+  def plot(self):
+    data = self.get_data()
+    total_width = 0.8
+    width = total_width/len(data)
+
+    X = np.arange(1, MAX_CLIENT_NUM+1)
+    X = np.append(X, [MAX_CLIENT_NUM+2])
+    print X
+
+    legend_lines = []
+
+    ax = self.add_subplot(111)
+    ax.axvline(x=MAX_CLIENT_NUM+1, linewidth=1, color='k')
+
+    for offset, algo in zip(range(0, len(data)), sorted(data.keys())):
+      Y = [data[algo][n] for n in range(1, MAX_CLIENT_NUM+1)]
+      Y.append(list(chain.from_iterable(Y)))
+      print [len(l) for l in Y]
+
+      if algo.startswith('TrafficAware'):
+        label = 'TrafficAware'
+      else:
+        label = algo
+
+      lines = ax.boxplot(Y, positions=X-total_width/2+offset*width+width/2, widths=0.6*width, whis=100, patch_artist=True)
+
+      color = self.color
+
+      for l in ['boxes', 'whiskers', 'caps', 'medians']:
+        setp(lines[l], linewidth=0.8, color=color, linestyle='solid')
+      setp(lines['boxes'], facecolor='w')
+
+      ax.set_xlim([total_width/2, max(X)+total_width])
+      ax.set_xticks([x for x in X])
+
+      l, = ax.plot([1,1], '-', color=color, label=label)
+      legend_lines.append(l)
+
+      ax.set_xticklabels([str(i) for i in range(1, MAX_CLIENT_NUM+1)] + [self.escape('all_cases')])
+
+    ax.legend(loc='upper left', bbox_to_anchor=(0.05, 1.2), ncol=len(data.keys())/2,  **self.legend_kwargs)
+
+    for l in legend_lines:
+      l.set_visible(False)
+
+    ax.set_xlabel('\\textbf{Active Client Number}')
+    ax.set_ylabel('\\textbf{%s} (Mbps)' % (self.ylabel))
+    self.save()
+
+
+class IndividualThroughputComaprisonFigure(ThroughputComaprisonFigure):
+
+  def collect_one_ap(self, l, query):
+    l.extend(query.values_list('bw', flat=True))
+
+
+class BSSThroughputComaprisonFigure(ThroughputComaprisonFigure):
+
+  def collect_one_ap(self, l, query):
+    l.append(sum(query.values_list('bw', flat=True)))
+
+
+class UDPIndividualThroughputComparisonFigure(IndividualThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(UDPIndividualThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_udp'
+    self.ylabel = 'Individual UDP Throughput'
+
+
+class UDPBSSThroughputComparisonFigure(BSSThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(UDPBSSThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_udp'
+    self.ylabel = 'BSS UDP Throughput'
+
+class TCPUplinkIndividualThroughputComparisonFigure(IndividualThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(TCPUplinkIndividualThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_tcp'
+    self.ylabel = 'Individual TCP Throughput'
+
+
+class TCPBSSUplinkThroughputComparisonFigure(BSSThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(TCPBSSUplinkThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_tcp'
+    self.ylabel = 'BSS TCP Throughput'
+
+class TCPDownlinkIndividualThroughputComparisonFigure(IndividualThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(TCPDownlinkIndividualThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_tcp_downlink'
+    self.ylabel = 'Individual TCP Downlink Throughput'
+
+
+class TCPBSSDownlinkThroughputComparisonFigure(BSSThroughputComaprisonFigure):
+
+  def __init__(self):
+    super(TCPBSSDownlinkThroughputComparisonFigure, self).__init__()
+    self.measurement = 'iperf_tcp_downlink'
+    self.ylabel = 'BSS TCP Downlink Throughput'
+
+
+
+
+
+
+
+
+
+
+
+
 
 class ThroughputFigure(Figure):
 
@@ -80,12 +231,12 @@ class ThroughputFigure(Figure):
 class IndividualThroughputFigure(ThroughputFigure):
 
   def get_data(self, client_num):
-    query = MeasurementHistory.objects.filter(begin1__gte=BEGIN, begin1__lte=END)
-    algorithms = set(query.values_list('algo', flat=True))
+    measurement_history_query = MeasurementHistory.objects.filter(begin1__gte=BEGIN, begin1__lte=END)
+    algorithms = set(measurement_history_query.values_list('algo', flat=True))
     data = dict((a, []) for a in algorithms)
 
     for algo in algorithms:
-      for measurement_history in query.filter(measurement=self.measurement, algo=algo).order_by('begin1'):
+      for measurement_history in measurement_history_query.filter(measurement=self.measurement, algo=algo).order_by('begin1'):
         active_client_num = ThroughputResult.objects.filter(last_updated__gte=measurement_history.begin1, last_updated__lte=measurement_history.end2).count()
 
         if client_num is not None and active_client_num != client_num:
@@ -103,12 +254,12 @@ class IndividualThroughputFigure(ThroughputFigure):
 class BSSThroughputFigure(ThroughputFigure):
 
   def get_data(self, client_num):
-    query = MeasurementHistory.objects.filter(begin1__gte=BEGIN, begin1__lte=END)
-    algorithms = set(query.values_list('algo', flat=True))
+    measurement_history_query = MeasurementHistory.objects.filter(begin1__gte=BEGIN, begin1__lte=END)
+    algorithms = set(measurement_history_query.values_list('algo', flat=True))
     data = dict((a, []) for a in algorithms)
 
     for algo in algorithms:
-      for measurement_history in query.filter(measurement=self.measurement, algo=algo).order_by('begin1'):
+      for measurement_history in measurement_history_query.filter(measurement=self.measurement, algo=algo).order_by('begin1'):
         active_client_num = ThroughputResult.objects.filter(last_updated__gte=measurement_history.begin1, last_updated__lte=measurement_history.end2).count()
 
         if client_num is not None and active_client_num != client_num:
@@ -197,8 +348,14 @@ class ThroughputImprovementFigure(Figure):
 
 
 ALL_FIGURES = [
-    UDPIndividualThroughputFigure,
-    UDPBSSThroughputFigure,
+    # UDPIndividualThroughputComparisonFigure,
+    # UDPBSSThroughputComparisonFigure,
+    # TCPUplinkIndividualThroughputComparisonFigure,
+    # TCPBSSUplinkThroughputComparisonFigure,
+    TCPDownlinkIndividualThroughputComparisonFigure,
+    TCPBSSDownlinkThroughputComparisonFigure,
+    # UDPIndividualThroughputFigure,
+    # UDPBSSThroughputFigure,
     #TCPIndividualThroughputFigure,
     #TCPBSSThroughputFigure,
     ]
