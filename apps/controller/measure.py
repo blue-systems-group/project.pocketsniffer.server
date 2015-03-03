@@ -26,8 +26,10 @@ MEASUREMENT_DURATION = 20
 CHANNEL_DWELL_TIME = 5
 MEASUREMENTS = {
     # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
-    "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    # "iperf_tcp_uplink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "iperf_tcp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -p %s -f m -P 1' % ('%d')},
+    # "iperf_udp_uplink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    # "iperf_udp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -u -p %s -f m -P 1' % ('%d')},
     }
 
 
@@ -173,7 +175,7 @@ class APMeasurementThread(threading.Thread):
     self.repeat = kwargs.get('repeat', DEFAULT_REPEAT)
 
 
-  def do_measurement(self, algo, measurement):
+  def do_measurement(self, algo, measurement, limit_client=None):
     measurement_history = MeasurementHistory()
     measurement_history.begin1 = dt.now()
 
@@ -182,6 +184,16 @@ class APMeasurementThread(threading.Thread):
     if len(all_stations) == 0:
       logger.debug("No stations found for AP %s." % (self.ap.BSSID))
       return
+
+    if limit_client is not None:
+      if not algo.need_traffic:
+        all_stations = [t for t in all_stations if t.startswith(limit_client)]
+      else:
+        for t1, t2 in all_stations:
+          if t1.startswith(limit_client):
+            all_stations = (t1, t2)
+            break
+
     client_num = random.randint(1, min(len(all_stations), MAX_CLIENT_NUM))
     all_stations = random.sample(all_stations, client_num)
 
@@ -201,6 +213,8 @@ class APMeasurementThread(threading.Thread):
     logger.debug("Algorithm: %s" % (algo.name))
     logger.debug("Measurment: %s" % (measurement))
     logger.debug("Client number: %d" % (client_num))
+    logger.debug("Active clients: %s" % (str(active_stas)))
+
 
     if algo.need_traffic:
       Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': CHANNEL_DWELL_TIME, 'clients': active_stas}).send(self.ap.BSSID)
@@ -232,7 +246,7 @@ class APMeasurementThread(threading.Thread):
 
   def run(self):
     for unused in range(0, self.repeat):
-      logger.debug("================ Run #: %d  =====================" % (unused))
+      logger.debug("================ Run #: %d / %d  =====================" % (unused, self.repeat))
       algo = random.choice(ALGORITHMS)
       measurement = random.choice(MEASUREMENTS.keys())
       self.do_measurement(algo, measurement)
