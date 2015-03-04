@@ -257,10 +257,13 @@ class MeasurementHistory(models.Model):
 
   measurement = models.CharField(max_length=128, null=True, default=None, db_index=True)
   algo = models.CharField(max_length=128, null=True, default=None, db_index=True)
-  station_map = models.TextField(null=True, default=None)
-  client_num = models.IntegerField(null=True, default=None)
 
   ap = models.ForeignKey(AccessPoint, null=True, default=None)
+  station_map = models.TextField(null=True, default=None)
+  client_num = models.IntegerField(null=True, default=None)
+  active_clients = models.TextField(null=True, default=None)
+  passive_clients = models.TextField(null=True, default=None)
+
 
   def __repr__(self):
     return json.dumps({'begin': str(self.begin1), 'end': str(self.end2), 'algo': str(self.algo), 'measurement': str(self.measurement)})
@@ -274,6 +277,8 @@ class AlgorithmHistory(models.Model):
   channel_dwell_time = models.IntegerField(null=True, default=None)
   channel_before = models.IntegerField(null=True, default=None, db_index=True)
   channel_after = models.IntegerField(null=True, default=None, db_index=True)
+
+  h_index = models.TextField(null=True, default=None)
 
   def __repr__(self):
     return json.dumps({'algorithm': self.algo, 'ap': self.ap.BSSID, 'before': self.channel_before, 'after': self.channel_after})
