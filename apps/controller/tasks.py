@@ -37,9 +37,7 @@ def trigger_measurement(self, *args, **kwargs):
   with open(MEASUREMENT_TASK_ID_FILE, 'w') as f:
     print >>f, self.request.id
 
-  threads = ap_measurement(**kwargs)
-  for t in threads:
-    t.join()
+  ap_measurement(**kwargs)
 
 
 
