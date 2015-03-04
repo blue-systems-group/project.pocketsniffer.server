@@ -41,7 +41,7 @@ class Algorithm(object):
       logger.debug("%d new %s." % (m.objects.filter(last_updated__gte=self.begin).count(), m.__name__))
 
     for ap in target_aps:
-      new_channel = self.get_new_channel(ap)
+      h_index, new_channel = self.get_new_channel(ap)
       if new_channel != ap.channel:
         logger.debug("Assign AP %s with new channel %d (was %d)" % (ap.BSSID, new_channel, ap.channel))
         measure.Request({'action': 'apConfig', 'band2g': {'channel': new_channel}}).send(ap.BSSID)
@@ -52,6 +52,7 @@ class Algorithm(object):
       history.channel_dwell_time = kwargs.get('channel_dwell_time', None)
       history.channel_before = ap.channel
       history.channel_after = new_channel
+      history.h_index = json.dumps(h_index)
       history.save()
 
 
@@ -65,7 +66,7 @@ class NoAssignment(Algorithm):
     self.need_traffic = False
 
   def get_new_channel(self, ap):
-    return ap.channel
+    return dict(), ap.channel
 
 
 class RandomAssignment(Algorithm):
@@ -77,7 +78,7 @@ class RandomAssignment(Algorithm):
 
 
   def get_new_channel(self, ap):
-    return random.choice(settings.BAND2G_CHANNELS)
+    return dict(), random.choice(settings.BAND2G_CHANNELS)
 
 
 
@@ -102,7 +103,9 @@ class WeightedGraphColor(Algorithm):
         h.append(self.Ifactor(c, neighbor.channel)*self.weight(ap, neighbor))
       H[c] = max([0] + h)
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+    min_h = min(H.values())
+    candidates = [c for c in settings.BAND2G_CHANNELS if H[c] == min_h]
+    return H, random.choice(candidates)
 
 
   def Ifactor(self, chan1, chan2):
@@ -136,12 +139,12 @@ class TerminalCount(Algorithm):
 
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      station_count = Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=[s.MAC for s in my_stas]).exclude(src=ap.BSSID).count()
-      ap_count = ScanResult.objects.filter(last_updated__gte=self.begin, neighbor__channel=c).filter(Q(myself_ap=ap)|Q(myself_station__in=my_stas)).count()
-      H[c] = station_count + ap_count
+      terminals = set(Traffic.objects.filter(last_updated__gte=self.begin, for_device__in=my_stas, channel=c).exclude(src__in=[s.MAC for s in my_stas]).exclude(src=ap.BSSID).values_list('src', flat=True))
+      terminals = terminals.union(ScanResult.objects.filter(last_updated__gte=self.begin, neighbor__channel=c).filter(Q(myself_ap=ap)|Q(myself_station__in=my_stas)).values_list('neighbor__BSSID', flat=True))
+      H[c] = len(terminals)
 
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
+    return H, min(settings.BAND2G_CHANNELS, key=lambda t: H[t])
 
 
 class TrafficAware(Algorithm):
@@ -154,12 +157,7 @@ class TrafficAware(Algorithm):
     self.need_scan_result = False
     self.need_traffic = True
 
-    self.weight = kwargs.get('weight', {'packets': 0.4, 'retry_packets': 0.2, 'corrupted_packets': 0.4})
-
-  @property
-  def name(self):
-    return '%s-%s' % (self.__class__.__name__, json.dumps(self.weight))
-
+    self.weight = kwargs.get('weight', {'packets': 1, 'retry_packets': 0, 'corrupted_packets': 0})
 
   def get_new_channel(self, ap):
     my_stas = Station.objects.filter(last_updated__gte=self.begin, sniffer_station=True, associate_with=ap, neighbor_station__isnull=True).values_list('MAC', flat=True)
@@ -180,4 +178,4 @@ class TrafficAware(Algorithm):
           H[c][m] = float(H[c][m]) / max_c[m]
 
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return min(settings.BAND2G_CHANNELS, key=lambda c: sum([H[c][k]*v for k, v in self.weight.items()]))
+    return H, min(settings.BAND2G_CHANNELS, key=lambda c: sum([H[c][k]*v for k, v in self.weight.items()]))
