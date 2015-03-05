@@ -39,8 +39,6 @@ class Figure(object):
 
     self.set_font()
 
-    self.logger.debug("Plotting %s" % (self.__class__.__name__))
-
   @property
   def marker(self):
     return next(self.markers)
