@@ -264,6 +264,8 @@ class MeasurementHistory(models.Model):
   active_clients = models.TextField(null=True, default=None)
   passive_clients = models.TextField(null=True, default=None)
 
+  jamming_channel = models.IntegerField(null=True, default=None)
+
 
   def __repr__(self):
     return json.dumps({'begin': str(self.begin1), 'end': str(self.end2), 'algo': str(self.algo), 'measurement': str(self.measurement)})

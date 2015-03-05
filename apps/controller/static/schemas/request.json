@@ -8,7 +8,7 @@
         "action": {
             "description": "Action that is supposed to be performed by receiver.",
             "type": "string",
-            "enum": ["collect", "apConfig", "clientReassoc", "clientReboot"]
+            "enum": ["collect", "apConfig", "clientReassoc", "clientReboot", "startJamming", "stopJamming"]
         },
         "apStatus": {
             "description": "Whether to collect AP status, e.g., current channel, tx power, etc.",
@@ -93,6 +93,10 @@
         "iperfArgs": {
             "description": "Arguments for iperf.",
             "type": "string"
+        },
+        "jammingChannel": {
+            "description": "Which channel to jam.",
+            "type": "integer"
         }
     },
     "definitions": {

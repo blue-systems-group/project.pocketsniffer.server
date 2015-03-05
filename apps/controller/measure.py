@@ -179,6 +179,8 @@ def do_measurement(measurement, algo, client_num, **kwargs):
     return
 
   ap = AccessPoint.objects.get(BSSID=kwargs.get('ap', random.choice(eligible_aps)))
+  jamming_ap = AccessPoint.get(BSSID=random.choice([a for a in eligible_aps if a != ap.BSSID]))
+  jamming_channel = random.choice(settings.BAND2G_CHANNELS)
 
   all_stations = station_map[ap.BSSID]
   if len(all_stations) > client_num:
@@ -198,6 +200,7 @@ def do_measurement(measurement, algo, client_num, **kwargs):
   history.client_num = len(active_stas)
   history.active_stas = json.dumps(active_stas)
   history.passive_stas = json.dumps(passive_stas)
+  history.jamming_channel = jamming_channel
 
 
   logger.debug("=======================================================")
@@ -206,7 +209,11 @@ def do_measurement(measurement, algo, client_num, **kwargs):
   logger.debug("AP: %s" % (ap.BSSID))
   logger.debug("Client number: %d" % (len(active_stas)))
   logger.debug("Active clients: %s" % (str(active_stas)))
+  logger.debug("Jamming AP: %s" % (jamming_ap))
+  logger.debug("Jamming channel: %d" % (jamming_channel))
   logger.debug("=======================================================")
+
+  Request({'action': 'startJamming', 'jammingChannel': jamming_channel}).send(jamming_ap)
 
   if algo.need_traffic:
     if passive_stas is None:
@@ -236,6 +243,8 @@ def do_measurement(measurement, algo, client_num, **kwargs):
 
   history.end2 = dt.now()
   history.save()
+
+  Request({'action': 'stopJamming'}).send(jamming_ap)
   logger.debug("===================== MEASUREMENT END    ===================== ")
 
 
