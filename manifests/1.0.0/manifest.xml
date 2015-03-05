@@ -47,6 +47,7 @@
   </ScanResultTask>
 
   <ServerTask>
+    <disabled>false</disabled>
     <checkIntervalSec>60</checkIntervalSec>
     <serverPort>7654</serverPort>
     <targetSSIDPrefix>PocketSniffer2</targetSSIDPrefix>

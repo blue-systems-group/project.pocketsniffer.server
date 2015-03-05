@@ -5,13 +5,14 @@ import time
 import socket
 import json
 import random
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
 from django.conf import settings
 from jsonschema import validate
+import itertools
 
 
 from apps.controller.models import Station, AccessPoint, ScanResult, Traffic, LatencyResult, ThroughputResult, MeasurementHistory
-from apps.controller.algorithms import NoAssignment, RandomAssignment, WeightedGraphColor, TrafficAware, TerminalCount
+from apps.controller.algorithms import RandomAssignment, WeightedGraphColor, TrafficAware, TerminalCount
 from libs.common.util import recv_all
 
 
@@ -25,9 +26,8 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 MEASUREMENT_DURATION = 10
 CHANNEL_DWELL_TIME = 5
 MEASUREMENTS = {
-    # "latency": {'action': 'collect', 'clientLatency': True, 'pingArgs': '-i 0.2 -s 1232 -w %d 192.168.1.1' % (MEASUREMENT_DURATION)},
-    # "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     # "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    # "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     "iperf_tcp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -p %s -f m -P 1' % ('%d')},
     "iperf_udp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -u -p %s -f m -P 1' % ('%d')},
     }
@@ -39,15 +39,11 @@ ALGORITHMS = [
     WeightedGraphColor(),
     TerminalCount(),
     TrafficAware(),
-    # TrafficAware(weight={'packets': 1, 'retry_packets': 0, 'corrupted_packets': 0}),
-    # TrafficAware(weight={'packets': 0, 'retry_packets': 1, 'corrupted_packets': 0}),
-    # TrafficAware(weight={'packets': 0, 'retry_packets': 0, 'corrupted_packets': 1}),
     ]
 
+
 MAX_CLIENT_NUM = 4
-
-
-DEFAULT_REPEAT = len(MEASUREMENTS) * len(ALGORITHMS) * MAX_CLIENT_NUM * 20
+DEFAULT_REPEAT = 20
 
 
 class Request(dict):
@@ -170,17 +166,13 @@ def get_stations(need_sniffer=False, enforce_association=False):
 
 
 """ One experiment run """
-def do_measurement(**kwargs):
+def do_measurement(measurement, algo, client_num, **kwargs):
   logger.debug("================ MEASUREMENT BEGIN =====================")
 
   history = MeasurementHistory()
   history.begin1 = dt.now()
 
-  algo = kwargs.get('algo', random.choice(ALGORITHMS))
-  measurement = kwargs.get('measurement', random.choice(MEASUREMENTS.keys()))
-
   station_map = get_stations(algo.need_traffic, enforce_association=True)
-  client_num = kwargs.get('client_num', random.randint(1, MAX_CLIENT_NUM))
   eligible_aps = [ap for ap, stas in station_map.items() if len(stas) >= client_num]
   if len(eligible_aps) == 0:
     logger.debug("No eligible APs! Aborting.")
@@ -224,7 +216,7 @@ def do_measurement(**kwargs):
     time.sleep(CHANNEL_DWELL_TIME*len(settings.BAND2G_CHANNELS))
     for sta in passive_stas:
       logger.debug("Waiting for traffic statistics from %s" % (sta))
-      for unused in range(0, 20):
+      for unused in range(0, 60):
         if Traffic.objects.filter(last_updated__gte=history.begin1, hear_by__MAC=sta).exists():
           break
         time.sleep(1)
@@ -250,9 +242,12 @@ def do_measurement(**kwargs):
 
 def ap_measurement(**kwargs):
     repeat = kwargs.get('repeat', DEFAULT_REPEAT)
-    for unused in range(0, repeat):
-      logger.debug("================ Run #: %d / %d  =====================" % (unused, repeat))
-      do_measurement()
+    combinations = list(itertools.product(MEASUREMENTS.keys(), ALGORITHMS, range(1, MAX_CLIENT_NUM+1)))*repeat
+    random.shuffle(combinations)
+
+    for i, combo in enumerate(combinations):
+      logger.debug("================ Run #: %d / %d  =====================" % (i, len(combinations)))
+      do_measurement(*combo)
 
 
 
