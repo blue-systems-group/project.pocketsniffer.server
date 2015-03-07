@@ -133,9 +133,9 @@ class TerminalCount(Algorithm):
   def get_new_channel(self, ap):
     H = dict()
     for c in settings.BAND2G_CHANNELS:
-      aps = ScanResult.objects.filter(last_updated__gte=self.begin, myself_station__associate_with=ap, neighbor__channel=c).distinct('neighbor')
-      ap_count = aps.count()
-      client_counts = list(aps.filter(neighbor__client_num__isnull=False).values_list('neighbor__client_num', flat=True))
+      scan_query = ScanResult.objects.filter(last_updated__gte=self.begin, myself_station__associate_with=ap, neighbor__channel=c).exclude(neighbor=ap).distinct('neighbor')
+      ap_count = scan_query.count()
+      client_counts = list(scan_query.filter(neighbor__client_num__isnull=False).values_list('neighbor__client_num', flat=True))
       logger.debug("Channel %d: ap count = %d, terminal counts = %s" % (c, ap_count, str(client_counts)))
       H[c] = ap_count + sum(client_counts)
 
@@ -166,12 +166,13 @@ class TrafficAware(Algorithm):
     logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
 
     max_c = dict((m, max([H[c][m] for c in settings.BAND2G_CHANNELS])) for m in TrafficAware.METRICS)
+    norm_H = dict((c, dict()) for c in settings.BAND2G_CHANNELS)
     for m in TrafficAware.METRICS:
       for c in settings.BAND2G_CHANNELS:
         if max_c[m] == 0:
-          H[c][m] = 0
+          norm_H[c][m] = 0
         else:
-          H[c][m] = float(H[c][m]) / max_c[m]
+          norm_H[c][m] = float(H[c][m]) / max_c[m]
 
-    logger.debug("[%s] [%s] H index: %s" % (self.__class__.__name__, ap.BSSID, str(H)))
-    return H, min(settings.BAND2G_CHANNELS, key=lambda c: sum([H[c][k]*v for k, v in self.weight.items()]))
+    logger.debug("[%s] [%s] norm_H index: %s" % (self.__class__.__name__, ap.BSSID, str(norm_H)))
+    return H, min(settings.BAND2G_CHANNELS, key=lambda c: sum([norm_H[c][k]*v for k, v in self.weight.items()]))
