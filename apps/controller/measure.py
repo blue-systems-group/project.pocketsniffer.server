@@ -1,4 +1,5 @@
 import os
+import zlib
 import threading
 import logging
 import time
@@ -26,10 +27,10 @@ with open(os.path.join(SCHEMA_DIR, 'reply.json')) as f:
 MEASUREMENT_DURATION = 10
 CHANNEL_DWELL_TIME = 5
 MEASUREMENTS = {
-    # "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    # "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
-    "iperf_tcp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -p %s -f m -P 1' % ('%d')},
+    "iperf_udp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -u -b 72M -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
     "iperf_udp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -u -p %s -f m -P 1' % ('%d')},
+    "iperf_tcp": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-c 192.168.1.1 -i 1 -t %d -p %s -f m' % (MEASUREMENT_DURATION, '%d')},
+    "iperf_tcp_downlink": {'action': 'collect', 'clientThroughput': True, 'iperfArgs': '-s -i 1 -p %s -f m -P 1' % ('%d')},
     }
 
 
@@ -65,12 +66,18 @@ class Request(dict):
 
 
   def handle_reply(self, conn):
+    conn.settimeout(settings.READ_TIMEOUT_SEC)
+    data = recv_all(conn)
+
     try:
-      conn.settimeout(settings.READ_TIMEOUT_SEC)
-      content = recv_all(conn)
-      reply = json.loads(content)
+      data = zlib.decompress(data)
+    except zlib.error:
+      pass
+
+    try:
+      reply = json.loads(data)
     except:
-      logger.exception("Failed to parse reply: %s" % (str(content)))
+      logger.exception("Failed to parse reply: %s" % (str(data)))
       return
 
     try:
@@ -117,7 +124,7 @@ class Request(dict):
           handler_threads.append(t)
         else:
           conn.close()
-      except socket.timeout:
+      except (socket.timeout, socket.error):
         logger.debug("%s is dead." % (ap.BSSID))
       except:
         logger.exception("Failed to send msg to %s" % (ap.BSSID))
@@ -126,7 +133,7 @@ class Request(dict):
       t.join()
 
   def broadcast(self, **kwargs):
-    aps = AccessPoint.objects.filter(sniffer_ap=True).values_list('BSSID', flat=True)
+    aps = AccessPoint.objects.filter(sniffer_ap=True, SSID__startswith='PocketSniffer').values_list('BSSID', flat=True)
     self.send(*aps, **kwargs)
 
 
@@ -178,11 +185,19 @@ def do_measurement(measurement, algo, client_num, **kwargs):
     logger.debug("No eligible APs! Aborting.")
     return
 
-  ap = AccessPoint.objects.get(BSSID=kwargs.get('ap', random.choice(eligible_aps)))
-  jamming_ap = AccessPoint.get(BSSID=random.choice([a for a in eligible_aps if a != ap.BSSID]))
-  jamming_channel = random.choice(settings.BAND2G_CHANNELS)
+  active_ap = AccessPoint.objects.get(BSSID=kwargs.get('ap', random.choice(eligible_aps)))
 
-  all_stations = station_map[ap.BSSID]
+  jamming = kwargs.get('jamming', False)
+
+  if jamming:
+    try:
+      jamming_ap = AccessPoint.objects.filter(SSID__startswith='Jamming')[0]
+      jamming_channel = random.choice(settings.BAND2G_CHANNELS)
+    except:
+      logger.debug("No jamming AP found.")
+      jamming_ap = None
+
+  all_stations = station_map[active_ap.BSSID]
   if len(all_stations) > client_num:
     all_stations = random.sample(all_stations, client_num)
 
@@ -193,34 +208,40 @@ def do_measurement(measurement, algo, client_num, **kwargs):
     active_stas = all_stations
     passive_stas = None
 
-  history.ap = ap
+  if 'clients' in kwargs:
+    active_stas = kwargs['clients']
+
+  history.ap = active_ap
   history.algo = algo.name
   history.measurement = measurement
   history.station_map = json.dumps(station_map)
   history.client_num = len(active_stas)
-  history.active_stas = json.dumps(active_stas)
-  history.passive_stas = json.dumps(passive_stas)
-  history.jamming_channel = jamming_channel
+  history.active_clients = json.dumps(active_stas)
+  history.passive_clients = json.dumps(passive_stas)
+  if jamming:
+    history.jamming_channel = jamming_channel
 
 
   logger.debug("=======================================================")
   logger.debug("Algorithm: %s" % (history.algo))
   logger.debug("Measurment: %s" % (history.measurement))
-  logger.debug("AP: %s" % (ap.BSSID))
+  logger.debug("AP: %s" % (active_ap.BSSID))
   logger.debug("Client number: %d" % (len(active_stas)))
   logger.debug("Active clients: %s" % (str(active_stas)))
-  logger.debug("Jamming AP: %s" % (jamming_ap))
-  logger.debug("Jamming channel: %d" % (jamming_channel))
+  if jamming and jamming_ap is not None:
+    logger.debug("Jamming AP: %s" % (jamming_ap.BSSID))
+    logger.debug("Jamming channel: %d" % (jamming_channel))
   logger.debug("=======================================================")
 
-  Request({'action': 'startJamming', 'jammingChannel': jamming_channel}).send(jamming_ap)
+  if jamming and jamming_ap is not None:
+    Request({'action': 'startJamming', 'jammingChannel': jamming_channel}).send(jamming_ap.BSSID)
 
   if algo.need_traffic:
     if passive_stas is None:
       logger.debug("No passive stas. Aborting.")
       return
-    Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': CHANNEL_DWELL_TIME, 'clients': active_stas}).send(ap.BSSID)
-    time.sleep(CHANNEL_DWELL_TIME*len(settings.BAND2G_CHANNELS))
+    Request({'action': 'collect', 'clientTraffic': True, 'trafficChannel': settings.BAND2G_CHANNELS, 'channelDwellTime': CHANNEL_DWELL_TIME, 'clients': active_stas}).send(active_ap.BSSID)
+    time.sleep(2*CHANNEL_DWELL_TIME*len(settings.BAND2G_CHANNELS))
     for sta in passive_stas:
       logger.debug("Waiting for traffic statistics from %s" % (sta))
       for unused in range(0, 60):
@@ -230,23 +251,25 @@ def do_measurement(measurement, algo, client_num, **kwargs):
     if not Traffic.objects.filter(last_updated__gte=history.begin1, hear_by__MAC__in=passive_stas).exists():
       logger.debug("No traffic statistics for any active device.")
       logger.debug("===================== MEASUREMENT END    ===================== ")
+      if jamming and jamming_ap is not None:
+        Request({'action': 'stopJamming'}).send(jamming_ap.BSSID)
       return
 
   if algo.need_scan_result:
-    Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).send(ap.BSSID)
+    Request({'action': 'collect', 'apScan': True, 'clientScan': True, 'clients': active_stas}).send(active_ap.BSSID)
 
-  algo.run(begin=history.begin1, ap=ap)
+  algo.run(begin=history.begin1, ap=active_ap)
 
   measure_request = Request(MEASUREMENTS[measurement])
   measure_request['clients'] = active_stas
-  measure_request.send(ap.BSSID)
+  measure_request.send(active_ap.BSSID)
 
   history.end2 = dt.now()
   history.save()
 
-  Request({'action': 'stopJamming'}).send(jamming_ap)
   logger.debug("===================== MEASUREMENT END    ===================== ")
-
+  if jamming and jamming_ap is not None:
+    Request({'action': 'stopJamming'}).send(jamming_ap.BSSID)
 
 
 def ap_measurement(**kwargs):

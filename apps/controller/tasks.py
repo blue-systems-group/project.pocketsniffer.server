@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
+
 import os
+import zlib
 import logging
 import socket
 import time
@@ -55,27 +57,38 @@ def server_task(self, *args, **kwargs):
   server_sock.listen(settings.PUBLIC_BACKLOG)
 
   while True:
-    conn, addr = server_sock.accept()
-    content = recv_all(conn)
-
     try:
-      reply = json.loads(content)
-    except:
-      logger.exception("Failed to read reply from %s: %s" % (str(addr), str(content)))
-      continue
+      conn, addr = server_sock.accept()
+      data = recv_all(conn)
 
-    try:
-      validate(reply, REPLY_SCHEMA)
-    except:
-      logger.exception("Failed to validate reply.")
-      logger.debug(json.dumps(reply))
-      return
-
-    logger.debug("Got reply from %s: %s" % (str(addr), json.dumps(reply)))
-
-    for t, handler in HANDLER_MAPPING.items():
       try:
-        if reply['request'].get(t, False):
-          handler(reply[t])
+        prev_len = len(data)
+        data = zlib.decompress(data)
+        after_len = len(data)
+        logger.debug("Compressed msg: %d -> %d (%.2f%%)" % (after_len, prev_len, float(prev_len)/after_len*100))
+      except zlib.error:
+        pass
+
+      try:
+        reply = json.loads(data)
       except:
-        logger.exception("Failed to handle %s" % (t))
+        logger.exception("Failed to read reply from %s: %s" % (str(addr), str(data)))
+        continue
+
+      try:
+        validate(reply, REPLY_SCHEMA)
+      except:
+        logger.exception("Failed to validate reply.")
+        logger.debug(json.dumps(reply))
+        return
+
+      logger.debug("Got reply from %s: %s" % (str(addr), json.dumps(reply)))
+
+      for t, handler in HANDLER_MAPPING.items():
+        try:
+          if reply['request'].get(t, False):
+            handler(reply[t])
+        except:
+          logger.exception("Failed to handle %s" % (t))
+    except:
+      logger.exception("Failed to handle request.")
