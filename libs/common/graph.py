@@ -8,6 +8,12 @@ from itertools import cycle
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt, rc
 
+tableau10 = [(31, 119, 180), (255, 127, 14), (44, 160, 44), (214, 39, 40), (148, 103, 189)]
+for i in range(0, len(tableau10)):
+  r, g, b = tableau10[i]
+  tableau10[i] = (r/255.0, g/255.0, b/255.0)
+
+
 
 def pool_worker(f):
   def wrapper(*args, **kwargs):
@@ -37,7 +43,8 @@ class Figure(object):
     logging.basicConfig(format='[%(asctime)s] %(levelname)s [%(filename)32s:%(lineno)4d] %(message)s', level=logging.DEBUG)
     self.logger = logging.getLogger('Figure')
 
-    self.set_font()
+
+  
 
   @property
   def marker(self):
@@ -47,10 +54,16 @@ class Figure(object):
   def color(self):
     return next(self.colors)
 
+  @property
+  def hatch(self):
+    return next(self.hatches)
+
   def add_figure(self):
     self.fig = plt.figure()
     self.markers = cycle('osD^')
-    self.colors = cycle('rbgky')
+    self.colors = cycle(tableau10)
+    self.set_font()
+    self.hatches = cycle(['/', '\\', '-', '|', '.', 'o', '*'])
 
 
 
